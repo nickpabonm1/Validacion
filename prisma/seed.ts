@@ -6,6 +6,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_PROVIDER_CATALOG } from "@fad-console/shared-types";
+import { DEMO_SELFIE_PNG_BASE64, DEMO_DOCUMENT_PNG_BASE64 } from "./seed-demo-images";
 
 const prisma = new PrismaClient();
 
@@ -246,13 +247,53 @@ async function main() {
       { key: "location", label: "Ubicación", order: 1, show: true, status: "COMPLETED", rawStatus: "COMPLETED", configuration: {}, features: {}, data: null, startedAt: null, completedAt: null, durationSeconds: null },
       { key: "privacyNotice", label: "Aviso de privacidad", order: 2, show: true, status: "COMPLETED", rawStatus: "COMPLETED", configuration: {}, features: {}, data: { privacyNoticeAccepted: true }, startedAt: null, completedAt: null, durationSeconds: null },
       { key: "formValidationId", label: "Formulario de validación", order: 3, show: true, status: "COMPLETED", rawStatus: "COMPLETED", configuration: {}, features: {}, data: null, startedAt: null, completedAt: null, durationSeconds: null },
+      {
+        key: "captureId",
+        label: "Captura de documento",
+        order: 4,
+        show: true,
+        status: "COMPLETED",
+        rawStatus: "COMPLETED",
+        configuration: { captureFront: true, captureBack: false, country: "COL" },
+        features: { provider: 1 },
+        data: {
+          files: [{ name: "documentFront", file: DEMO_DOCUMENT_PNG_BASE64, type: "png" }],
+        },
+        startedAt: null,
+        completedAt: null,
+        durationSeconds: null,
+      },
+      {
+        key: "liveness",
+        label: "Prueba de vida",
+        order: 5,
+        show: true,
+        status: "COMPLETED",
+        rawStatus: "COMPLETED",
+        configuration: {},
+        features: { provider: 1, viewRequired: true },
+        data: {
+          files: [{ name: "selfie", file: DEMO_SELFIE_PNG_BASE64, type: "png" }],
+        },
+        startedAt: null,
+        completedAt: null,
+        durationSeconds: null,
+      },
     ],
     progressPercent: 100,
     startedAt: "2026-01-01T10:00:00.000Z",
     completedAt: "2026-01-01T10:06:00.000Z",
     lastSyncedAt: "2026-01-01T10:06:00.000Z",
     comparisonPercentage: 99.5,
-    ocr: { documentNumber: "0000000000", fullName: "CLIENTE DEMO" },
+    ocr: {
+      documentNumber: "0000000000",
+      fullName: "CLIENTE DEMO",
+      dateOfBirth: "1990-05-14",
+      expirationDate: "2032-05-14",
+      nationality: "COL",
+      gender: "M",
+      documentType: "Cédula de ciudadanía",
+    },
     classification: { countryCode: "COL", cardType: 4, cardTypeDescription: "Identification Card" },
     files: [],
     device: { platform: "Chrome 120", operatingSystem: "Windows 10" },
@@ -260,8 +301,17 @@ async function main() {
     location: { latitude: "3.42", longitude: "-76.52" },
     externalValidations: {
       accuant_validation: { validation_result: true, valid_acceptance_criteria: 27 },
+      face_comparison: { validation_result: true, comparison_percentage: 99.5 },
+      list_validation: { validation_result: true, matches_found: 0 },
     },
-    alerts: [],
+    alerts: [
+      { level: "info", message: "Comparación facial exitosa (99.5%)" },
+      { level: "info", message: "Documento verificado sin inconsistencias" },
+    ],
+    mediaAssets: [
+      { id: "captureId:documentFront", stepKey: "captureId", label: "documentFront", mimeType: "image/png", dataUrl: `data:image/png;base64,${DEMO_DOCUMENT_PNG_BASE64}` },
+      { id: "liveness:selfie", stepKey: "liveness", label: "selfie", mimeType: "image/png", dataUrl: `data:image/png;base64,${DEMO_SELFIE_PNG_BASE64}` },
+    ],
     raw: { createResponse: null, stepResponse: null, dataResponse: null },
   };
 

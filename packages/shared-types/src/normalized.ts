@@ -28,6 +28,20 @@ export interface NormalizedFile {
   fields: Record<string, unknown>;
 }
 
+/**
+ * Imagen embebida (base64) encontrada dentro de la respuesta de un paso (por ejemplo
+ * `captureId.data.files[]`, `liveness.data.files[]`, huellas en formato jpeg, etc.). Se
+ * extrae y normaliza a una `dataUrl` lista para renderizar, en vez de mostrarse como texto
+ * base64 dentro de un volcado JSON (ver ExecutionDetailPage, pestaña "Reporte").
+ */
+export interface NormalizedMediaAsset {
+  id: string;
+  stepKey: string;
+  label: string;
+  mimeType: string;
+  dataUrl: string;
+}
+
 export interface NormalizedValidationDetail {
   validationId: string | null;
   processName: string;
@@ -63,6 +77,7 @@ export interface NormalizedValidationDetail {
   location: { latitude: string | null; longitude: string | null } | null;
   externalValidations: Record<string, unknown>;
   alerts: unknown[];
+  mediaAssets: NormalizedMediaAsset[];
 
   raw: {
     createResponse: unknown | null;

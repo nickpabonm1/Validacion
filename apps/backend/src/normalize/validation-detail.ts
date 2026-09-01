@@ -8,6 +8,7 @@ import type {
 import { normalizeResult, normalizeStepStatus, normalizeValidationStatus } from "./status";
 import { parseFlexibleDate } from "./dates";
 import { maskEmail, maskName } from "./mask";
+import { extractMediaAssets } from "./media";
 
 interface RequestStepEntry {
   order: number;
@@ -188,6 +189,7 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
     location: latitude || longitude ? { latitude, longitude } : null,
     externalValidations,
     alerts,
+    mediaAssets: extractMediaAssets(steps),
     raw: {
       createResponse: params.createResponse,
       stepResponse: params.stepResponse,

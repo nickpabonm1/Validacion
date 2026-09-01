@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ValidationExecutionListItemDto } from "@fad-console/shared-types";
+import type { NormalizedValidationDetail, ValidationExecutionListItemDto } from "@fad-console/shared-types";
 import type { ValidationRequestConfig } from "@fad-console/validation-schemas";
 import { api } from "../../lib/api-client";
 
@@ -42,7 +42,7 @@ export interface ExecutionDetailDto {
   completedAt: string | null;
   lastSyncedAt: string | null;
   createdAt: string;
-  normalized: Record<string, unknown> | null;
+  normalized: NormalizedValidationDetail | null;
   requestPayload: ValidationRequestConfig | null;
   steps: ExecutionStepDto[];
   webhookEvents: ExecutionWebhookEventSummary[];

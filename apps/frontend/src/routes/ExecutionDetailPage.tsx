@@ -12,6 +12,9 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { StatusBadge, ResultBadge } from "../components/domain/StatusBadge";
 import { RenderedFieldValue } from "../components/domain/RenderedFieldValue";
+import { ReportView } from "../components/domain/ReportView";
+import { OcrTable } from "../components/domain/OcrTable";
+import { sanitizeStepData, isPlainObject } from "../lib/sanitize-step-data";
 import { useToast } from "../components/ui/toast";
 
 const STEP_STATUS_ICON: Record<string, typeof CheckCircle2> = {
@@ -149,13 +152,22 @@ export function ExecutionDetailPage() {
         }} />
       </div>
 
-      <Tabs defaultValue="summary">
+      <Tabs defaultValue="report">
         <TabsList>
-          <TabsTrigger value="summary">Resumen</TabsTrigger>
+          <TabsTrigger value="report">Reporte</TabsTrigger>
+          <TabsTrigger value="summary">Vista personalizada</TabsTrigger>
           <TabsTrigger value="steps">Pasos</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks ({execution.webhookEvents.length})</TabsTrigger>
           <TabsTrigger value="raw">JSON original</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="report">
+          {execution.normalized ? (
+            <ReportView detail={execution.normalized} executionId={execution.id} />
+          ) : (
+            <EmptyState title="Todavía no hay datos de resultado" description="Usa «Consultar estado» para traer la información desde FAD." />
+          )}
+        </TabsContent>
 
         <TabsContent value="summary">
           <div className="mb-3 flex items-center justify-between">
@@ -219,10 +231,12 @@ export function ExecutionDetailPage() {
                         </p>
                         <StatusBadge status={step.status} />
                       </div>
-                      {step.data ? (
-                        <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted p-2 text-xs">
-                          {JSON.stringify(step.data, null, 2)}
-                        </pre>
+                      {step.data && isPlainObject(sanitizeStepData(step.data)) ? (
+                        <div className="mt-2">
+                          <OcrTable data={sanitizeStepData(step.data) as Record<string, unknown>} />
+                        </div>
+                      ) : step.data ? (
+                        <p className="mt-2 text-xs text-muted-foreground">{String(sanitizeStepData(step.data))}</p>
                       ) : null}
                     </div>
                   </div>
