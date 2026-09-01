@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 20% 98%;
+  --foreground: 215 28% 14%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 215 28% 14%;
+
+  --muted: 210 20% 95%;
+  --muted-foreground: 215 15% 42%;
+
+  --border: 214 20% 88%;
+  --input: 214 20% 88%;
+  --ring: 212 70% 40%;
+
+  --primary: 212 72% 26%;
+  --primary-foreground: 0 0% 100%;
+
+  --accent: 198 85% 42%;
+  --accent-foreground: 0 0% 100%;
+
+  --success: 142 60% 32%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 42%;
+  --warning-foreground: 0 0% 100%;
+
+  --destructive: 0 68% 45%;
+  --destructive-foreground: 0 0% 100%;
+
+  --radius: 0.6rem;
+}
+
+.dark {
+  --background: 222 32% 8%;
+  --foreground: 210 20% 92%;
+
+  --card: 222 28% 11%;
+  --card-foreground: 210 20% 92%;
+
+  --muted: 222 22% 15%;
+  --muted-foreground: 215 15% 65%;
+
+  --border: 222 20% 20%;
+  --input: 222 20% 20%;
+  --ring: 206 80% 55%;
+
+  --primary: 206 75% 52%;
+  --primary-foreground: 222 32% 8%;
+
+  --accent: 198 85% 55%;
+  --accent-foreground: 222 32% 8%;
+
+  --success: 142 55% 45%;
+  --success-foreground: 222 32% 8%;
+
+  --warning: 38 92% 55%;
+  --warning-foreground: 222 32% 8%;
+
+  --destructive: 0 70% 60%;
+  --destructive-foreground: 222 32% 8%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      "cv02",
+      "cv03",
+      "cv04",
+      "cv11";
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .skeleton {
+    @apply animate-pulse rounded-md bg-muted;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}

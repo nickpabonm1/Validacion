@@ -1,0 +1,30 @@
+import { z } from "zod";
+import { USER_ROLES } from "@fad-console/shared-types";
+
+const PASSWORD_MIN = 10;
+
+export const CreateUserInputSchema = z.object({
+  name: z.string().min(1, "El nombre es obligatorio").max(150),
+  email: z.string().email("Correo inválido").max(200),
+  password: z.string().min(PASSWORD_MIN, `La contraseña debe tener al menos ${PASSWORD_MIN} caracteres`),
+  role: z.enum(USER_ROLES),
+  active: z.boolean().default(true),
+});
+export type CreateUserInput = z.infer<typeof CreateUserInputSchema>;
+
+export const UpdateUserInputSchema = z.object({
+  name: z.string().min(1).max(150).optional(),
+  role: z.enum(USER_ROLES).optional(),
+  active: z.boolean().optional(),
+  password: z.string().min(PASSWORD_MIN).optional(),
+});
+export type UpdateUserInput = z.infer<typeof UpdateUserInputSchema>;
+
+export const LoginInputSchema = z.object({
+  email: z.string().email("Correo inválido"),
+  password: z.string().min(1, "La contraseña es obligatoria"),
+});
+export type LoginInput = z.infer<typeof LoginInputSchema>;
+
+export const BootstrapAdminInputSchema = CreateUserInputSchema.omit({ role: true, active: true });
+export type BootstrapAdminInput = z.infer<typeof BootstrapAdminInputSchema>;

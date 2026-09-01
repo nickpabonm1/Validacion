@@ -1,0 +1,472 @@
+openapi: 3.0.3
+info:
+  title: FAD Biometrics Configuration & Results Console — API interna
+  description: >
+    API interna de la consola (`/api/*`). No debe confundirse con la API externa de FAD
+    Biometrics By Steps, documentada en `docs/api-contracts.md`. Toda llamada a FAD pasa por el
+    backend a través de `FadApiAdapter`; el frontend nunca contacta a FAD directamente.
+  version: "0.1.0"
+servers:
+  - url: /api
+security:
+  - cookieAuth: []
+tags:
+  - name: auth
+  - name: users
+  - name: environments
+  - name: providers
+  - name: templates
+  - name: executions
+  - name: webhooks
+  - name: response-views
+  - name: audit
+  - name: settings
+  - name: media-proxy
+
+paths:
+  /health:
+    get:
+      tags: [auth]
+      summary: Estado del servicio (sin autenticación)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  time: { type: string, format: date-time }
+
+  /auth/bootstrap/status:
+    get:
+      tags: [auth]
+      summary: Indica si falta completar el asistente de instalación (¿existe algún usuario?)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  needsBootstrap: { type: boolean }
+
+  /auth/bootstrap/admin:
+    post:
+      tags: [auth]
+      summary: Crea el primer usuario ADMIN (solo si aún no existe ningún usuario)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10 }
+      responses:
+        "201": { description: Administrador creado, sesión iniciada }
+        "409": { description: Ya existe al menos un usuario }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Inicia sesión (limitado a 20 intentos / 15 min por IP)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { description: Sesión iniciada (cookie httpOnly) }
+        "401": { description: Credenciales incorrectas }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Cierra la sesión actual
+      responses:
+        "204": { description: Sesión cerrada }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Usuario autenticado actual
+      responses:
+        "200": { description: OK }
+        "401": { description: No autenticado }
+
+  /users:
+    get:
+      tags: [users]
+      summary: Lista usuarios (ADMIN, AUDITOR)
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [users]
+      summary: Crea un usuario (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10 }
+                role: { type: string, enum: [ADMIN, OPERATOR, AUDITOR] }
+      responses:
+        "201": { description: Creado }
+
+  /users/{id}:
+    patch:
+      tags: [users]
+      summary: Actualiza rol/estado/contraseña de un usuario (ADMIN)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { description: Actualizado }
+    delete:
+      tags: [users]
+      summary: Elimina un usuario (ADMIN, nunca al último ADMIN activo)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: Eliminado }
+
+  /environments:
+    get:
+      tags: [environments]
+      summary: Lista ambientes (nunca incluye secretos, solo banderas *Configured)
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [environments]
+      summary: Crea un ambiente (ADMIN)
+      responses:
+        "201": { description: Creado }
+
+  /environments/{id}:
+    get:
+      tags: [environments]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: OK } }
+    put:
+      tags: [environments]
+      summary: Actualiza un ambiente (ADMIN). Un campo de credencial vacío conserva el valor existente.
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: Actualizado } }
+    delete:
+      tags: [environments]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "204": { description: Eliminado } }
+
+  /environments/{id}/credentials/{field}:
+    delete:
+      tags: [environments]
+      summary: Elimina una credencial guardada (ADMIN)
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - name: field
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [basicAuthUsername, basicAuthPassword, apiUsername, apiPassword, webhookUsername, webhookPassword]
+      responses: { "200": { description: OK } }
+
+  /environments/{id}/test-connection:
+    post:
+      tags: [environments]
+      summary: Prueba la autenticación OAuth contra FAD (ADMIN). Nunca devuelve el token.
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200":
+          description: Resultado de la prueba
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  code: { type: string }
+                  tokenType: { type: string }
+                  expiresIn: { type: integer }
+
+  /providers:
+    get:
+      tags: [providers]
+      summary: Catálogo de proveedores (captureId/liveness), editable
+      responses: { "200": { description: OK } }
+    post:
+      tags: [providers]
+      summary: Crea una entrada de catálogo (ADMIN)
+      responses: { "201": { description: Creado } }
+
+  /providers/{id}:
+    put:
+      tags: [providers]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: Actualizado } }
+    delete:
+      tags: [providers]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "204": { description: Eliminado } }
+
+  /templates:
+    get:
+      tags: [templates]
+      summary: Lista plantillas de validación
+      responses: { "200": { description: OK } }
+    post:
+      tags: [templates]
+      summary: Crea una plantilla (ADMIN, OPERATOR)
+      responses: { "201": { description: Creada } }
+
+  /templates/{id}:
+    get:
+      tags: [templates]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: OK } }
+    put:
+      tags: [templates]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: Actualizada } }
+    delete:
+      tags: [templates]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "204": { description: Eliminada } }
+
+  /templates/{id}/clone:
+    post:
+      tags: [templates]
+      summary: Clona una plantilla existente
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "201": { description: Clonada } }
+
+  /executions:
+    get:
+      tags: [executions]
+      summary: Historial de validaciones, con filtros (status, environmentId, templateId, search)
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: environmentId, in: query, schema: { type: string } }
+        - { name: templateId, in: query, schema: { type: string } }
+        - { name: search, in: query, schema: { type: string } }
+      responses: { "200": { description: OK } }
+    post:
+      tags: [executions]
+      summary: Crea una validación REAL contra FAD (ADMIN, OPERATOR). 400 si el ambiente no tiene credenciales.
+      responses:
+        "201": { description: Creada }
+        "400": { description: Ambiente sin credenciales configuradas }
+
+  /executions/demo:
+    post:
+      tags: [executions]
+      summary: Crea una validación SIMULADA (modo demostración, isDemo=true). Nunca contacta a FAD real.
+      responses: { "201": { description: Creada } }
+
+  /executions/{id}:
+    get:
+      tags: [executions]
+      summary: Detalle de una validación (pasos, webhooks, JSON normalizado y original)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: OK } }
+
+  /executions/{id}/sync:
+    post:
+      tags: [executions]
+      summary: Vuelve a consultar getValidationStep/getValidationData y actualiza el estado normalizado
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: Actualizado } }
+
+  /executions/{id}/reveal/{field}:
+    post:
+      tags: [executions]
+      summary: Revela temporalmente key o vector (ADMIN, OPERATOR); queda auditado
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - name: field
+          in: path
+          required: true
+          schema: { type: string, enum: [key, vector] }
+      responses: { "200": { description: OK } }
+
+  /executions/{id}/steps/{stepKey}/save:
+    post:
+      tags: [executions]
+      summary: Módulo técnico avanzado — reenvía un payload ya cifrado a saveValidationStep
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - name: stepKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [encryptedPayload]
+              properties:
+                encryptedPayload: { type: string }
+      responses: { "200": { description: OK } }
+
+  /webhooks/fad:
+    post:
+      tags: [webhooks]
+      summary: Endpoint público consumido por FAD. Basic Auth opcional configurable por ambiente.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, event]
+              properties:
+                id: { type: string }
+                idUser: { type: string }
+                event: { type: string }
+                creationDate: { type: string }
+                data: {}
+                retry: { type: integer }
+                error: { type: string, nullable: true }
+                idOriginal: { type: string, nullable: true }
+      responses:
+        "200": { description: "Recibido (idempotente): { received: true, status }" }
+        "401": { description: Basic Auth inválido }
+
+  /webhooks:
+    get:
+      tags: [webhooks]
+      summary: Lista eventos de webhook recibidos
+      responses: { "200": { description: OK } }
+
+  /webhooks/{id}:
+    get:
+      tags: [webhooks]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: OK } }
+
+  /response-views:
+    get:
+      tags: [response-views]
+      summary: Lista vistas de respuesta (ejecutiva/operativa/técnica/personalizada)
+      responses: { "200": { description: OK } }
+    post:
+      tags: [response-views]
+      summary: Crea una vista (ADMIN)
+      responses: { "201": { description: Creada } }
+
+  /response-views/{id}:
+    get:
+      tags: [response-views]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: OK } }
+    put:
+      tags: [response-views]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: Actualizada } }
+    delete:
+      tags: [response-views]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "204": { description: Eliminada } }
+
+  /response-views/{id}/apply/{executionId}:
+    get:
+      tags: [response-views]
+      summary: Proyecta una vista sobre una ejecución (motor sin eval, ver docs/architecture.md)
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+
+  /audit:
+    get:
+      tags: [audit]
+      summary: Registro de auditoría (ADMIN, AUDITOR)
+      parameters:
+        - { name: action, in: query, schema: { type: string } }
+        - { name: entityType, in: query, schema: { type: string } }
+        - { name: userId, in: query, schema: { type: string } }
+      responses: { "200": { description: OK } }
+
+  /settings/dashboard:
+    get:
+      tags: [settings]
+      summary: Estadísticas para el panel de inicio
+      responses: { "200": { description: OK } }
+
+  /settings:
+    get:
+      tags: [settings]
+      summary: Lista parámetros del sistema (ADMIN)
+      responses: { "200": { description: OK } }
+
+  /settings/{key}:
+    put:
+      tags: [settings]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+    delete:
+      tags: [settings]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string }
+      responses: { "204": { description: Eliminado } }
+
+  /media-proxy/{executionId}/{fileIndex}:
+    get:
+      tags: [media-proxy]
+      summary: Proxy autenticado de archivos de una validación (protección SSRF por host)
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: fileIndex
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Contenido del archivo }
+        "403": { description: Host fuera del ambiente configurado }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: fad_console_session
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }

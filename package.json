@@ -1,0 +1,57 @@
+{
+  "name": "fad-biometrics-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FAD Biometrics Configuration & Results Console",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:packages": "npm run build --workspace=packages/shared-types && npm run build --workspace=packages/validation-schemas",
+    "predev": "npm run build:packages",
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "build": "npm run build:packages && npm run build --workspace=apps/backend && npm run build --workspace=apps/frontend",
+    "start": "node apps/backend/dist/server.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "pretypecheck": "npm run build:packages",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "pretest": "npm run build:packages",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspace=apps/frontend --if-present",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "predb:seed": "npm run build:packages",
+    "db:seed": "tsx prisma/seed.ts",
+    "generate:encryption-key": "node scripts/generate-encryption-key.mjs",
+    "postinstall": "npm run db:generate --if-present && npm run build:packages --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.16.10",
+    "concurrently": "^9.0.1",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react": "^7.37.1",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "prettier": "^3.3.3",
+    "prisma": "^5.20.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.11.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

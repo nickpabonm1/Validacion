@@ -1,0 +1,279 @@
+// FAD Biometrics Configuration & Results Console — modelo de datos
+// SQLite por defecto (desarrollo/demo). El conector SQLite de Prisma no soporta `enum` ni el
+// tipo nativo `Json`: los enums se modelan como `String` (validados en la capa de aplicación
+// con los enums de @fad-console/shared-types) y los campos JSON se guardan como `String`
+// serializado (ver apps/backend/src/lib/json-field.ts para el helper de (de)serialización).
+// Cambiar a Postgres: `provider = "postgresql"` + DATABASE_URL de Postgres +
+// `prisma migrate deploy` (opcionalmente promover estos campos a `enum`/`Json` nativos en ese
+// momento). Ver docs/architecture.md §6.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  /// UserRole: ADMIN | OPERATOR | AUDITOR
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdTemplates ValidationTemplate[]  @relation("TemplateCreatedBy")
+  updatedTemplates ValidationTemplate[]  @relation("TemplateUpdatedBy")
+  executions       ValidationExecution[] @relation("ExecutionCreatedBy")
+  auditLogs        AuditLog[]
+  updatedSettings  SystemSetting[]
+
+  @@map("users")
+}
+
+model ApiEnvironment {
+  id   String @id @default(uuid())
+  name String
+  description String?
+  /// EnvironmentType: UATHA | QA | PRODUCTION
+  environmentType String
+  baseUrl         String
+  active          Boolean @default(true)
+  timeoutMs       Int     @default(15000)
+  maxRetries      Int     @default(2)
+
+  // Secretos cifrados (AES-256-GCM vía CredentialEncryptionService). Nunca texto plano.
+  basicAuthUsernameEnc String?
+  basicAuthPasswordEnc String?
+  apiUsernameEnc       String?
+  apiPasswordEnc       String?
+  webhookUsernameEnc   String?
+  webhookPasswordEnc   String?
+  credentialsEncryptionVersion Int @default(1)
+
+  grantType                 String  @default("password")
+  passwordIsPreHashed       Boolean @default(false)
+  tokenRefreshMarginSeconds Int     @default(60)
+
+  authTokenEndpoint           String  @default("/authorization-server/oauth/token")
+  createValidationEndpoint    String  @default("/biometrics-by-steps/validations")
+  saveValidationStepEndpoint  String  @default("/validation/saveValidationStep/{validationId}")
+  getValidationStepEndpoint   String  @default("/validation/getValidationStep/{validationId}")
+  /// ConfigurableHttpMethod: GET | POST
+  getValidationStepHttpMethod String  @default("GET")
+  getValidationDataEndpoint   String  @default("/validation/validations/getValidationData/{validationId}")
+  launchUrlTemplate           String?
+
+  webhookUrl    String?
+  webhookActive Boolean @default(false)
+
+  /// ConnectionStatus: NOT_CONFIGURED | UNKNOWN | OK | FAILED
+  connectionStatus String    @default("NOT_CONFIGURED")
+  lastTestedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  templates  ValidationTemplate[]
+  executions ValidationExecution[]
+
+  @@map("api_environments")
+}
+
+model ProviderCatalogEntry {
+  id                 String   @id @default(uuid())
+  providerKey        String   @unique
+  providerLabel      String
+  providerType       String
+  externalProviderId Int
+  enabled            Boolean  @default(true)
+  /// JSON serializado (Record<string, unknown>)
+  metadata           String   @default("{}")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("provider_catalog_entries")
+}
+
+model ValidationTemplate {
+  id            String  @id @default(uuid())
+  name          String
+  description   String?
+  version       Int     @default(1)
+  environmentId String?
+  environment   ApiEnvironment? @relation(fields: [environmentId], references: [id], onDelete: SetNull)
+  /// JSON serializado (ValidationRequestConfig)
+  requestConfig String
+  active        Boolean @default(true)
+
+  createdById String?
+  createdBy   User?   @relation("TemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?   @relation("TemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  executions    ValidationExecution[]
+  responseViews ResponseView[]
+
+  @@map("validation_templates")
+}
+
+model ResponseView {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  /// ResponseViewKind: EXECUTIVE | OPERATIVE | TECHNICAL | CUSTOM
+  kind          String @default("CUSTOM")
+  /// JSON serializado (ResponseViewConfig)
+  configuration String
+  templateId    String?
+  template      ValidationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("response_views")
+}
+
+model ValidationExecution {
+  id           String  @id @default(uuid())
+  validationId String?
+  processName  String
+
+  environmentId String
+  environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  templateId    String?
+  template      ValidationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  /// JSON serializado: cuerpo enviado a FAD
+  requestPayload String
+  /// JSON serializado: respuesta cruda de FAD (createValidation)
+  responsePayload String?
+  /// JSON serializado: última respuesta normalizada (estado/detalle)
+  normalizedResponse String?
+
+  rawStatus String?
+  /// NormalizedValidationStatus
+  normalizedStatus String  @default("CREATED")
+  result           String?
+
+  clientNameMasked  String
+  clientEmailMasked String
+
+  keyEncrypted    String?
+  vectorEncrypted String?
+
+  isDemo Boolean @default(false)
+
+  startedAt    DateTime?
+  completedAt  DateTime?
+  lastSyncedAt DateTime?
+
+  createdById String?
+  createdBy   User?   @relation("ExecutionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps         ValidationStepExecution[]
+  webhookEvents WebhookEvent[]
+
+  @@index([validationId])
+  @@index([normalizedStatus])
+  @@map("validation_executions")
+}
+
+model ValidationStepExecution {
+  id                    String @id @default(uuid())
+  validationExecutionId String
+  validationExecution   ValidationExecution @relation(fields: [validationExecutionId], references: [id], onDelete: Cascade)
+
+  stepKey        String
+  externalStepId String?
+  order          Int
+  show           Boolean @default(true)
+  /// NormalizedStepStatus
+  status         String  @default("PENDING")
+  /// JSON serializado
+  configuration  String?
+  /// JSON serializado
+  features       String?
+  /// JSON serializado
+  input          String?
+  /// JSON serializado
+  data           String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@unique([validationExecutionId, stepKey])
+  @@map("validation_step_executions")
+}
+
+model WebhookEvent {
+  id              String  @id @default(uuid())
+  externalEventId String
+  idOriginal      String?
+  idUser          String?
+  eventType       String
+  validationId    String?
+
+  validationExecutionId String?
+  validationExecution   ValidationExecution? @relation(fields: [validationExecutionId], references: [id], onDelete: SetNull)
+
+  creationDateRaw String?
+  receivedAt      DateTime @default(now())
+  retry           Int      @default(0)
+  error           String?
+  /// JSON serializado: envelope completo recibido
+  payload         String
+
+  /// WebhookProcessingStatus
+  processingStatus String    @default("RECEIVED")
+  processedAt       DateTime?
+  processingError    String?
+
+  uniqueHash String @unique
+
+  @@index([eventType])
+  @@index([validationId])
+  @@map("webhook_events")
+}
+
+model AuditLog {
+  id         String  @id @default(uuid())
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// AuditAction
+  action     String
+  entityType String?
+  entityId   String?
+  /// JSON serializado, sin secretos
+  metadata   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key         String  @id
+  value       String?
+  encrypted   Boolean @default(false)
+  description String?
+  updatedById String?
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}

@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+**/build
+.git
+coverage
+playwright-report
+test-results
+prisma/dev.db
+.env

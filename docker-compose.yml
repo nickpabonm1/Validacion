@@ -1,0 +1,16 @@
+# Alternativa opcional a `npm run dev`. La aplicación funciona sin Docker; este archivo
+# solo empaqueta la app compilada con un volumen persistente para la base SQLite.
+services:
+  app:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY}
+      - DATABASE_URL=file:/app/data/app.db
+      - PORT=4000
+    volumes:
+      - fad-console-data:/app/data
+
+volumes:
+  fad-console-data:
