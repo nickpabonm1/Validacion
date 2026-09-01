@@ -14,7 +14,9 @@ import { StatusBadge, ResultBadge } from "../components/domain/StatusBadge";
 import { RenderedFieldValue } from "../components/domain/RenderedFieldValue";
 import { ReportView } from "../components/domain/ReportView";
 import { OcrTable } from "../components/domain/OcrTable";
+import { ShareLinkPanel } from "../components/domain/ShareLinkPanel";
 import { sanitizeStepData, isPlainObject } from "../lib/sanitize-step-data";
+import { buildLaunchUrl } from "../lib/launch-url";
 import { useToast } from "../components/ui/toast";
 
 const STEP_STATUS_ICON: Record<string, typeof CheckCircle2> = {
@@ -59,10 +61,7 @@ export function ExecutionDetailPage() {
   }
 
   const environment = environments.find((e) => e.id === execution.environment.id);
-  const launchUrl =
-    environment?.launchUrlTemplate && !environment.launchUrlTemplate.includes("{key}") && !environment.launchUrlTemplate.includes("{vector}")
-      ? environment.launchUrlTemplate.replaceAll("{validationId}", execution.validationId ?? "")
-      : null;
+  const launchUrl = buildLaunchUrl(environment?.launchUrlTemplate, execution.validationId, revealed);
 
   const grouped = new Map<string, typeof renderedFields>();
   for (const field of renderedFields ?? []) {
@@ -97,11 +96,6 @@ export function ExecutionDetailPage() {
               {syncExecution.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
               Consultar estado
             </Button>
-            {launchUrl ? (
-              <Button size="sm" onClick={() => window.open(launchUrl, "_blank", "noopener,noreferrer")}>
-                Abrir proceso
-              </Button>
-            ) : null}
           </>
         }
       />
@@ -151,6 +145,14 @@ export function ExecutionDetailPage() {
           setRevealed((prev) => ({ ...prev, vector: res.value }));
         }} />
       </div>
+
+      {launchUrl ? (
+        <ShareLinkPanel url={launchUrl} processName={execution.processName} />
+      ) : environment?.launchUrlTemplate ? (
+        <p className="text-xs text-muted-foreground">
+          Revela key/vector arriba para generar el enlace del proceso, el código QR y las opciones para compartirlo.
+        </p>
+      ) : null}
 
       <Tabs defaultValue="report">
         <TabsList>

@@ -5,7 +5,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Copy,
-  ExternalLink,
   Eye,
   FlaskConical,
   Loader2,
@@ -29,6 +28,8 @@ import { Input } from "../components/ui/input";
 import { Field } from "../builder/editors/Field";
 import { Badge } from "../components/ui/badge";
 import { StatusBadge, ResultBadge } from "../components/domain/StatusBadge";
+import { ShareLinkPanel } from "../components/domain/ShareLinkPanel";
+import { buildLaunchUrl } from "../lib/launch-url";
 import { useToast } from "../components/ui/toast";
 
 const STEP_LABELS = [
@@ -314,15 +315,6 @@ export function NewExecutionPage() {
   );
 }
 
-function buildLaunchUrl(template: string, result: ExecutionDetailDto, revealed: { key?: string; vector?: string }): string | null {
-  if (!template) return null;
-  if ((template.includes("{key}") && !revealed.key) || (template.includes("{vector}") && !revealed.vector)) return null;
-  return template
-    .replaceAll("{validationId}", result.validationId ?? "")
-    .replaceAll("{key}", revealed.key ?? "")
-    .replaceAll("{vector}", revealed.vector ?? "");
-}
-
 function ResultStep({
   result,
   environmentLaunchTemplate,
@@ -337,7 +329,7 @@ function ResultStep({
   onGoToDetail: () => void;
 }) {
   const { notify } = useToast();
-  const launchUrl = environmentLaunchTemplate ? buildLaunchUrl(environmentLaunchTemplate, result, revealed) : null;
+  const launchUrl = buildLaunchUrl(environmentLaunchTemplate, result.validationId, revealed);
 
   return (
     <div className="space-y-4">
@@ -403,16 +395,20 @@ function ResultStep({
 
       <div className="flex flex-wrap gap-2 pt-2">
         <Button onClick={onGoToDetail}>Ver detalle de la validación</Button>
-        {launchUrl ? (
-          <Button variant="outline" onClick={() => window.open(launchUrl, "_blank", "noopener,noreferrer")}>
-            <ExternalLink className="h-4 w-4" /> Abrir proceso
-          </Button>
-        ) : environmentLaunchTemplate ? (
-          <p className="self-center text-xs text-muted-foreground">
-            Revela key/vector para habilitar &quot;Abrir proceso&quot;.
-          </p>
-        ) : null}
       </div>
+
+      {launchUrl ? (
+        <ShareLinkPanel url={launchUrl} processName={result.processName} />
+      ) : environmentLaunchTemplate ? (
+        <p className="text-xs text-muted-foreground">
+          Revela key/vector para generar el enlace del proceso, el código QR y las opciones para compartirlo.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Configura la plantilla de enlace (&quot;launchUrlTemplate&quot;) del ambiente en Ambientes para generar aquí el
+          enlace, el código QR y las opciones para compartirlo con el cliente.
+        </p>
+      )}
     </div>
   );
 }

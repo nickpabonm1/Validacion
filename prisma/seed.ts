@@ -56,6 +56,7 @@ async function main() {
         "Configuración > Conexiones API.",
       environmentType: "UATHA",
       baseUrl: "https://demo.example.invalid",
+      launchUrlTemplate: "https://demo.example.invalid/validacion/{validationId}",
       active: true,
       connectionStatus: "NOT_CONFIGURED",
     },
