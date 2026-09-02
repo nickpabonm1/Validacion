@@ -75,6 +75,81 @@ describe("buildWebSdkNormalizedDetail", () => {
     expect(detail.externalValidations.naat_check).toMatchObject({ risk: "LOW" });
     expect(detail.externalValidations.face_comparison).toMatchObject({ confidence: 97.5 });
   });
+
+  it("extrae ocrPhoto/ocrSignature/ocrFingerprint (imágenes embebidas en el OCR de Acuant) como mediaAssets", () => {
+    const detail = buildWebSdkNormalizedDetail(
+      baseInput({
+        acuant: {
+          ...baseInput().acuant,
+          ocrPhoto: "base64ocrphoto",
+          ocrSignature: "base64ocrsignature",
+          ocrFingerprint: "base64ocrfingerprint",
+        },
+      }),
+    );
+    const labels = detail.mediaAssets.map((a) => a.label);
+    expect(labels).toEqual(expect.arrayContaining(["ocrPhoto", "ocrSignature", "ocrFingerprint"]));
+  });
+
+  it("agrega las alertas propias de Acuant (además de la de NAAT-CHECK cuando aplica)", () => {
+    const detail = buildWebSdkNormalizedDetail(
+      baseInput({ acuant: { ...baseInput().acuant, alerts: [{ Name: "TAMPER", Description: "Posible manipulación" }] } }),
+    );
+    expect(detail.alerts).toHaveLength(1);
+    expect(detail.alerts[0]).toMatchObject({ Name: "TAMPER" });
+  });
+
+  it("combina classification con las métricas de calidad de imagen por lado (prefijadas front/back)", () => {
+    const detail = buildWebSdkNormalizedDetail(
+      baseInput({
+        acuant: {
+          ...baseInput().acuant,
+          classification: { type: "ine", countryCode: "MEX" },
+          frontQuality: { glare: 1, dpi: 300 },
+          backQuality: { sharpness: 0.9 },
+        },
+      }),
+    );
+    expect(detail.classification).toMatchObject({
+      type: "ine",
+      countryCode: "MEX",
+      frontGlare: 1,
+      frontDpi: 300,
+      backSharpness: 0.9,
+    });
+  });
+
+  it("mantiene classification en null cuando Acuant no devuelve clasificación ni métricas de calidad", () => {
+    const detail = buildWebSdkNormalizedDetail(baseInput());
+    expect(detail.classification).toBeNull();
+  });
+
+  it("incluye document_validation cuando Acuant devuelve idData.validation no vacío", () => {
+    const detail = buildWebSdkNormalizedDetail(
+      baseInput({ acuant: { ...baseInput().acuant, validation: { isRealId: true } } }),
+    );
+    expect(detail.externalValidations.document_validation).toEqual({ isRealId: true });
+  });
+
+  it("no agrega document_validation cuando `validation` está ausente o vacío", () => {
+    const detail = buildWebSdkNormalizedDetail(baseInput({ acuant: { ...baseInput().acuant, validation: {} } }));
+    expect(detail.externalValidations.document_validation).toBeUndefined();
+  });
+
+  it("agrega solo las validaciones externas de saveValidationData que realmente vienen con valor", () => {
+    const detail = buildWebSdkNormalizedDetail(
+      baseInput({
+        saveResult: {
+          status: "TERMINADO",
+          porcentCompare: 97.5,
+          dataValidationRenapo: { match: true },
+          dataValidationSat: null,
+        },
+      }),
+    );
+    expect(detail.externalValidations.dataValidationRenapo).toEqual({ match: true });
+    expect(detail.externalValidations.dataValidationSat).toBeUndefined();
+  });
 });
 
 describe("buildMetadataJson", () => {

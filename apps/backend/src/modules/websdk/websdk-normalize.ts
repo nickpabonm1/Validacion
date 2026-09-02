@@ -117,6 +117,24 @@ export function buildMetadataJson(input: WebSdkNormalizeInput): Record<string, u
 /** Construye el `NormalizedValidationDetail` de una ejecución Web SDK, la misma forma canónica
  * que usan las ejecuciones API-by-steps — así el detalle/reporte (`ReportView`, `OcrTable`,
  * `ImageGallery`) funciona sin cambios sin importar el modelo de integración. */
+/** Campos del response de `saveValidationData` (ver PDF Integration_saveValidationData_service
+ * y el ejemplo de respuesta exitosa) que representan validaciones externas de terceros
+ * (RENAPO, SAT, FIMPE, INE, etc.). Solo se agregan a `externalValidations` cuando FAD realmente
+ * los devuelve con un valor (nunca se fabrican) — ver docs/technical-analysis.md "no inventar
+ * información". */
+const SAVE_RESULT_EXTERNAL_VALIDATION_KEYS = [
+  "dataValidationRenapo",
+  "dataValidationFimpeRPA",
+  "dataValidationSat",
+  "dataValidationFimpeCurp",
+  "dataValidationFimpeLN",
+  "dataValidationIne",
+  "minuciasResponse",
+  "validationInfoCompare",
+  "validationEnrollmentResult",
+  "validationAuthenticationResult",
+] as const;
+
 export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): NormalizedValidationDetail {
   const riskAccepted = input.check.result === true || input.check.risk.toUpperCase() === "LOW";
   const mediaAssets: NormalizedMediaAsset[] = [];
@@ -127,12 +145,46 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
   addAsset("captureId", "documentFront", input.acuant.frontImage);
   addAsset("captureId", "documentBack", input.acuant.backImage);
   addAsset("captureId", "idPhoto", input.acuant.idPhoto);
+  // Acuant puede devolver imágenes embebidas dentro de idData.ocr (foto/firma/huella); se
+  // extraen aparte (ver fad-sdk-client.ts `splitOcrImages`) para que se muestren como imágenes,
+  // nunca como texto en la tabla de OCR.
+  addAsset("captureId", "ocrPhoto", input.acuant.ocrPhoto);
+  addAsset("captureId", "ocrSignature", input.acuant.ocrSignature);
+  addAsset("captureId", "ocrFingerprint", input.acuant.ocrFingerprint);
   addAsset("liveness", "selfie", input.facetec.selfie);
   if (input.facetec.auditTrail?.[0]) addAsset("liveness", "auditTrail", input.facetec.auditTrail[0]);
 
   const alerts: unknown[] = [];
   if (!riskAccepted) {
     alerts.push({ level: "warning", message: `NAAT-CHECK reportó riesgo ${input.check.risk} (${input.check.key})` });
+  }
+  // Alertas propias de Acuant (p. ej. manipulación de imagen, hologramas) — se dejan con sus
+  // llaves originales (Name/Description/...): el renderizador de alertas del reporte ya detecta
+  // esos nombres de campo de forma genérica, sea cual sea el proveedor.
+  if (input.acuant.alerts?.length) alerts.push(...input.acuant.alerts);
+
+  // Clasificación del documento (tipo, país emisor, etc.) + métricas de calidad de imagen por
+  // lado (glare/dpi/sharpness/moire) — sin un lugar dedicado propio, se muestran junto a la
+  // clasificación (misma tabla "Documento" del reporte) con prefijo para no chocar con los
+  // nombres de campo que ya trae `classification`.
+  const classification: Record<string, unknown> = { ...(input.acuant.classification ?? {}) };
+  if (input.acuant.frontQuality) {
+    for (const [k, v] of Object.entries(input.acuant.frontQuality)) classification[`front${k[0]!.toUpperCase()}${k.slice(1)}`] = v;
+  }
+  if (input.acuant.backQuality) {
+    for (const [k, v] of Object.entries(input.acuant.backQuality)) classification[`back${k[0]!.toUpperCase()}${k.slice(1)}`] = v;
+  }
+
+  const externalValidations: Record<string, unknown> = {
+    naat_check: { risk: input.check.risk, key: input.check.key, result: input.check.result ?? null },
+    face_comparison: input.compare,
+  };
+  if (input.acuant.validation && Object.keys(input.acuant.validation).length > 0) {
+    externalValidations.document_validation = input.acuant.validation;
+  }
+  for (const key of SAVE_RESULT_EXTERNAL_VALIDATION_KEYS) {
+    const value = input.saveResult[key];
+    if (value !== null && value !== undefined) externalValidations[key] = value;
   }
 
   const steps: NormalizedStep[] = [
@@ -231,15 +283,12 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
     lastSyncedAt: input.completedAt,
     comparisonPercentage: input.compare.confidence,
     ocr: (input.acuant.ocr as Record<string, unknown> | undefined) ?? null,
-    classification: null,
+    classification: Object.keys(classification).length > 0 ? classification : null,
     files: [],
     device: null,
     network: null,
     location: null,
-    externalValidations: {
-      naat_check: { risk: input.check.risk, key: input.check.key, result: input.check.result ?? null },
-      face_comparison: input.compare,
-    },
+    externalValidations,
     alerts,
     mediaAssets,
     raw: {

@@ -4,8 +4,17 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useToast } from "../ui/toast";
 
+const LONG_STRING_THRESHOLD = 200;
+
+/** Nunca vuelca un valor largo (probable base64 de una imagen que no se haya extraído a
+ * `mediaAssets`) como texto: es la última línea de defensa contra un volcado ilegible, además
+ * de la extracción explícita que ya hacen `extractMediaAssets` (API by-steps) y
+ * `fad-sdk-client.ts`/`websdk-normalize.ts` (Web SDK). */
 function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "string" && value.length > LONG_STRING_THRESHOLD) {
+    return "[contenido binario — revisa la galería de imágenes]";
+  }
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
