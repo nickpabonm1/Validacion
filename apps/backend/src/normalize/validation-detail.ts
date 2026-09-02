@@ -205,6 +205,24 @@ function extractClientDetails(dataClient: Record<string, unknown>): Record<strin
   return Object.keys(result).length > 0 ? result : null;
 }
 
+/** Deriva el nombre completo a partir del OCR del documento (`captureId.data.ocr`), usando solo
+ * las claves reales observadas en respuestas de FAD: un campo combinado (`Full Name` /
+ * `Surname And Given Names`) cuando existe, o la combinación de nombre(s) + apellido cuando
+ * vienen por separado (`Given Name`/`Given Names`/`First Name` + `Surname`). Nunca se inventa un
+ * nombre: si no hay ninguna de estas claves con valor no vacío, devuelve `null`. */
+function deriveOcrFullName(ocr: Record<string, unknown>): string | null {
+  const direct = ocr["Full Name"] ?? ocr["Surname And Given Names"];
+  if (typeof direct === "string" && direct.trim()) return direct.trim();
+
+  const given = ocr["Given Name"] ?? ocr["Given Names"] ?? ocr["First Name"];
+  const surname = ocr["Surname"];
+  if (typeof given === "string" && given.trim() && typeof surname === "string" && surname.trim()) {
+    return `${given.trim()} ${surname.trim()}`;
+  }
+
+  return null;
+}
+
 const EXTERNAL_VALIDATION_HINT = /^(accuant_|comparison_|validation_)/;
 
 export function buildNormalizedValidationDetail(params: BuildNormalizedValidationDetailParams): NormalizedValidationDetail {
@@ -262,16 +280,6 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
     (typeof dataBlock?.result === "string" ? dataBlock.result : null) ??
     (typeof dataBlock?.validationProcessResult === "string" ? dataBlock.validationProcessResult : null);
 
-  const dataClient = asRecord(dataBlock?.client);
-  const stepClient = asRecord(stepBlock?.client);
-  const clientName =
-    (typeof dataClient.nombre === "string" ? dataClient.nombre : null) ??
-    (typeof stepClient.name === "string" ? stepClient.name : null) ??
-    params.fallbackClient.name ??
-    null;
-  const clientEmail = (typeof stepClient.mail === "string" ? stepClient.mail : null) ?? params.fallbackClient.mail ?? null;
-  const clientPhone = (typeof stepClient.phone === "string" ? stepClient.phone : null) ?? params.fallbackClient.phone ?? null;
-
   const files: NormalizedFile[] = Array.isArray(dataBlock?.files)
     ? (dataBlock!.files as unknown[])
         .filter((f): f is Record<string, unknown> => Boolean(f && typeof f === "object"))
@@ -293,6 +301,21 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
   const ocr = { ...extractOcrFromStepArray(captureIdData.ocr), ...extractOcrFromFiles(dataBlock?.files) };
 
   const documentChecks = extractDocumentChecks(captureIdData.alerts);
+
+  const dataClient = asRecord(dataBlock?.client);
+  const stepClient = asRecord(stepBlock?.client);
+  // El nombre leído del documento (OCR) es más confiable que el que se envió al crear la
+  // validación (a menudo un valor de prueba genérico como "PRUEBA" mientras se captura el
+  // proceso) — se prioriza cuando está disponible; el nombre originalmente enviado nunca se
+  // descarta, sigue accesible en `dataClient`/`stepClient` (steps/raw) para trazabilidad.
+  const clientName =
+    deriveOcrFullName(ocr) ??
+    (typeof dataClient.nombre === "string" ? dataClient.nombre : null) ??
+    (typeof stepClient.name === "string" ? stepClient.name : null) ??
+    params.fallbackClient.name ??
+    null;
+  const clientEmail = (typeof stepClient.mail === "string" ? stepClient.mail : null) ?? params.fallbackClient.mail ?? null;
+  const clientPhone = (typeof stepClient.phone === "string" ? stepClient.phone : null) ?? params.fallbackClient.phone ?? null;
 
   const alerts: unknown[] = [];
   const extraInfo = asRecord(dataBlock?.extraInfo);

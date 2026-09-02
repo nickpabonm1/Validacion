@@ -196,6 +196,46 @@ describe("buildNormalizedValidationDetail — datos reales del paso captureId", 
   });
 });
 
+describe("buildNormalizedValidationDetail — nombre del cliente corregido con el OCR del documento", () => {
+  it("prioriza el nombre completo leído del documento (OCR) sobre el valor de prueba enviado al crear la validación", () => {
+    const detail = buildNormalizedValidationDetail({
+      validationId: "demo-ocr-name",
+      processName: "PRUEBA",
+      environmentName: "Demo",
+      templateName: null,
+      requestSteps: { captureId: { order: 2, show: true } },
+      fallbackClient: { name: "PRUEBA", mail: "demo@example.com", phone: "+570000000000" },
+      createResponse: null,
+      stepResponse: {
+        success: true,
+        error: "",
+        code: null,
+        data: {
+          ...stepResponseFixture.data,
+          steps: {
+            captureId: {
+              ...stepResponseFixture.data.steps.captureId,
+              data: {
+                ...stepResponseFixture.data.steps.captureId.data,
+                ocr: [
+                  { key: "Given Name", value: "JUAN CARLOS" },
+                  { key: "Surname", value: "PEREZ GOMEZ" },
+                ],
+              },
+            },
+          },
+        },
+      },
+      dataResponse: dataResponseFixture,
+    });
+
+    // El nombre enviado al crear la validación ("PRUEBA", un valor de prueba genérico) queda
+    // reemplazado por el nombre real leído del documento (OCR), sin descartarse: sigue disponible
+    // en `clientDetails`/los datos crudos de FAD para trazabilidad.
+    expect(detail.client.name).toBe("JUAN CARLOS PEREZ GOMEZ");
+  });
+});
+
 describe("buildNormalizedValidationDetail — sin datos de captureId", () => {
   it("documentChecks/governmentValidation/naatCheckResult/clientDetails no rompen con datos ausentes", () => {
     const detail = buildNormalizedValidationDetail({
