@@ -1,4 +1,9 @@
-import type { NormalizedFile, NormalizedStep, NormalizedValidationDetail } from "@fad-console/shared-types";
+import type {
+  NormalizedDocumentCheck,
+  NormalizedFile,
+  NormalizedStep,
+  NormalizedValidationDetail,
+} from "@fad-console/shared-types";
 import { STEP_CATALOG } from "@fad-console/shared-types";
 import type {
   CreateValidationResponse,
@@ -62,6 +67,109 @@ function extractAlerts(source: unknown, acc: unknown[]): void {
   if (Array.isArray(source)) {
     acc.push(...source);
   }
+}
+
+/** `steps.captureId.data.ocr` — confirmado con una respuesta real de FAD (getValidationStep):
+ * un array de `{key, value}` (no un objeto), a veces con la misma llave repetida (variantes
+ * "MRZ"/"Visual" del mismo campo) — se conserva la ÚLTIMA ocurrencia de cada llave, igual que
+ * `extractOcrFromFiles` hace con `Object.assign`. No documentado en el PDF ni en la colección
+ * Postman. */
+function extractOcrFromStepArray(ocr: unknown): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  if (!Array.isArray(ocr)) return result;
+  for (const entry of ocr) {
+    const record = asRecord(entry);
+    if (typeof record.key === "string") result[record.key] = record.value;
+  }
+  return result;
+}
+
+/** Una categoría "plana" de `data.alerts` (`textCrossChecks`, `mrzCheckDigit`, `dateChecks`):
+ * array directo de `{type:{name,description?}, result:{name,description?}, sources?}`. */
+function pushFlatDocumentChecks(acc: NormalizedDocumentCheck[], category: string, items: unknown, page: number | null): void {
+  if (!Array.isArray(items)) return;
+  for (const item of items) {
+    const record = asRecord(item);
+    const type = asRecord(record.type);
+    const result = asRecord(record.result);
+    if (typeof type.name !== "string") continue;
+    acc.push({
+      category,
+      page,
+      name: type.name,
+      description: typeof type.description === "string" ? type.description : null,
+      result: typeof result.name === "string" ? result.name : "UNKNOWN",
+      resultDescription: typeof result.description === "string" ? result.description : null,
+      sources: Array.isArray(record.sources) ? record.sources.filter((s): s is string => typeof s === "string") : null,
+    });
+  }
+}
+
+/** `steps.captureId.data.alerts` — confirmado con una respuesta real de FAD (getValidationStep),
+ * no documentado en el PDF ni en la colección Postman. Cinco categorías con dos formas
+ * distintas: `textCrossChecks`/`mrzCheckDigit`/`dateChecks` son arrays planos de checks;
+ * `authenticity`/`imageQuality` son arrays de `{page, checks:[...]}` (agrupados por lado del
+ * documento: 1 = frente, 2 = reverso). Se traduce todo a una única lista plana
+ * (`NormalizedDocumentCheck[]`) para que el reporte las agrupe por `category`+`page` sin tener
+ * que conocer esta diferencia de forma. Nunca lanza: una categoría con forma inesperada
+ * simplemente no aporta filas, no rompe el resto. */
+function extractDocumentChecks(alertsRaw: unknown): NormalizedDocumentCheck[] {
+  const alerts = asRecord(alertsRaw);
+  const checks: NormalizedDocumentCheck[] = [];
+  pushFlatDocumentChecks(checks, "textCrossChecks", alerts.textCrossChecks, null);
+  pushFlatDocumentChecks(checks, "mrzCheckDigit", alerts.mrzCheckDigit, null);
+  pushFlatDocumentChecks(checks, "dateChecks", alerts.dateChecks, null);
+  for (const category of ["authenticity", "imageQuality"] as const) {
+    const groups = alerts[category];
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups) {
+      const groupRecord = asRecord(group);
+      const page = typeof groupRecord.page === "number" ? groupRecord.page : null;
+      pushFlatDocumentChecks(checks, category, groupRecord.checks, page);
+    }
+  }
+  return checks;
+}
+
+/** Folios y respuestas de validación contra gobierno (Registraduría/RENAPO/CECOBAN/ENROLL) —
+ * campos reales de `getValidationData.data`, confirmados con una respuesta real de FAD, no
+ * documentados en el PDF ni en la colección Postman. Solo se incluyen los que FAD devuelve
+ * poblados (nunca se fabrica un campo vacío). */
+const GOVERNMENT_VALIDATION_KEYS = [
+  "folio",
+  "folioProceso",
+  "folioCecoban",
+  "respuestaRenapo",
+  "respuestaCecoban",
+  "respuestaEnroll",
+  "dataValidationRenapo",
+  "dataValidationSat",
+  "dataValidationFimpeRPADto",
+  "dataValidationFimpeLN",
+  "dataValidationId",
+  "idVsRegistraduriaSimilarity",
+] as const;
+
+function extractGovernmentValidation(dataBlock: Record<string, unknown>): Record<string, unknown> | null {
+  const result: Record<string, unknown> = {};
+  for (const key of GOVERNMENT_VALIDATION_KEYS) {
+    const value = dataBlock[key];
+    if (value !== null && value !== undefined) result[key] = value;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+/** Campos de `getValidationData.data.client` distintos de `nombre`/`clientId` (que ya se
+ * muestran vía `client.name`) — apellidoPaterno, apellidoMaterno, curp, rfc, nacionalidad, etc.,
+ * confirmados con una respuesta real de FAD. Se muestran junto a la validación contra gobierno,
+ * donde el operador necesita verlos en claro para auditar el resultado. */
+function extractClientDetails(dataClient: Record<string, unknown>): Record<string, unknown> | null {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(dataClient)) {
+    if (key === "nombre" || key === "clientId") continue;
+    if (value !== null && value !== undefined && value !== "") result[key] = value;
+  }
+  return Object.keys(result).length > 0 ? result : null;
 }
 
 const EXTERNAL_VALIDATION_HINT = /^(accuant_|comparison_|validation_)/;
@@ -135,15 +243,19 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
         }))
     : [];
 
-  const ocr = extractOcrFromFiles(dataBlock?.files);
   const captureIdStep = steps.find((s) => s.key === "captureId");
   const captureIdData = asRecord(captureIdStep?.data);
   const classification = Object.keys(asRecord(captureIdData.classification)).length
     ? asRecord(captureIdData.classification)
     : null;
 
+  // `data.ocr` del paso captureId (array {key,value}) es la fuente principal; `dataResponse.
+  // files[].fields` (cuando existe) se superpone porque suele traer datos más finos por imagen.
+  const ocr = { ...extractOcrFromStepArray(captureIdData.ocr), ...extractOcrFromFiles(dataBlock?.files) };
+
+  const documentChecks = extractDocumentChecks(captureIdData.alerts);
+
   const alerts: unknown[] = [];
-  extractAlerts(asRecord(captureIdData.idData).alerts, alerts);
   const extraInfo = asRecord(dataBlock?.extraInfo);
   extractAlerts(extraInfo.alerts, alerts);
 
@@ -155,6 +267,15 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
       externalValidations[key] = value;
     }
   }
+
+  const dataBlockRecord = asRecord(dataBlock);
+  const governmentValidation = extractGovernmentValidation(dataBlockRecord);
+  const naatCheckRaw = dataBlockRecord.naatCheck;
+  const naatCheckResult =
+    naatCheckRaw && typeof naatCheckRaw === "object" && Object.keys(asRecord(naatCheckRaw)).length > 0
+      ? asRecord(naatCheckRaw)
+      : null;
+  const clientDetails = extractClientDetails(dataClient);
 
   const latitude = dataBlock?.latitude != null ? String(dataBlock.latitude) : null;
   const longitude = dataBlock?.longitude != null ? String(dataBlock.longitude) : null;
@@ -175,6 +296,7 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
       emailMasked: maskEmail(clientEmail),
       phone: clientPhone,
     },
+    clientDetails,
     steps,
     progressPercent,
     startedAt: parseFlexibleDate(dataBlock?.startDate ?? null).iso,
@@ -189,6 +311,9 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
     location: latitude || longitude ? { latitude, longitude } : null,
     externalValidations,
     alerts,
+    documentChecks,
+    governmentValidation,
+    naatCheckResult,
     mediaAssets: extractMediaAssets(steps),
     raw: {
       createResponse: params.createResponse,

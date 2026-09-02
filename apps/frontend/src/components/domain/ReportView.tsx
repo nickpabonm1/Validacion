@@ -5,6 +5,7 @@ import { EmptyState } from "../ui/misc";
 import { OcrTable } from "./OcrTable";
 import { ImageGallery } from "./ImageGallery";
 import { ExternalValidationCard } from "./ExternalValidationCard";
+import { DocumentChecksReport } from "./DocumentChecksReport";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -32,6 +33,9 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
   const hasOcr = detail.ocr && Object.keys(detail.ocr).length > 0;
   const hasDevice = detail.device && Object.keys(detail.device).length > 0;
   const hasNetwork = detail.network && Object.keys(detail.network).length > 0;
+  const hasClientDetails = detail.clientDetails && Object.keys(detail.clientDetails).length > 0;
+  const hasGovernmentValidation = detail.governmentValidation && Object.keys(detail.governmentValidation).length > 0;
+  const hasNaatCheck = detail.naatCheckResult && Object.keys(detail.naatCheckResult).length > 0;
   const externalEntries = Object.entries(detail.externalValidations ?? {});
 
   const isEmpty =
@@ -44,6 +48,10 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
     !hasNetwork &&
     !detail.location &&
     detail.alerts.length === 0 &&
+    detail.documentChecks.length === 0 &&
+    !hasClientDetails &&
+    !hasGovernmentValidation &&
+    !hasNaatCheck &&
     externalEntries.length === 0;
 
   if (isEmpty) {
@@ -70,6 +78,11 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
             <Stat label="% Comparación biométrica" value={`${detail.comparisonPercentage.toFixed(2)}%`} />
           ) : null}
         </CardContent>
+        {hasClientDetails ? (
+          <CardContent className="border-t border-border pt-4">
+            <OcrTable data={detail.clientDetails!} title="Datos del cliente (Registraduría/CURP/RFC)" />
+          </CardContent>
+        ) : null}
       </Card>
 
       {hasClassification || hasOcr ? (
@@ -80,6 +93,20 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
           <CardContent className="space-y-4">
             {hasClassification ? <OcrTable data={detail.classification!} title="Clasificación" /> : null}
             {hasOcr ? <OcrTable data={detail.ocr!} title="Datos OCR" /> : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <DocumentChecksReport checks={detail.documentChecks} />
+
+      {hasGovernmentValidation || hasNaatCheck ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Validación con gobierno / NAAT-CHECK</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {hasGovernmentValidation ? <OcrTable data={detail.governmentValidation!} title="Folios y respuestas de gobierno" /> : null}
+            {hasNaatCheck ? <OcrTable data={detail.naatCheckResult!} title="NAAT-CHECK" /> : null}
           </CardContent>
         </Card>
       ) : null}

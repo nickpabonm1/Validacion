@@ -42,6 +42,26 @@ export interface NormalizedMediaAsset {
   dataUrl: string;
 }
 
+/**
+ * Una fila de "Validación de ID" / calidad de imagen / autenticidad / MRZ / fechas del paso
+ * `captureId` (ver `getValidationStep`, `steps.captureId.data.alerts.{textCrossChecks,
+ * authenticity,imageQuality,mrzCheckDigit,dateChecks}` — confirmado con una respuesta real de
+ * FAD, no documentado en el PDF ni en la colección Postman). `category` agrupa las filas en las
+ * mismas secciones que ya muestra el Portal FAD ("Validación de datos cruzados", "Autenticidad
+ * del documento", "Calidad de la imagen", "Verificación de dígitos MRZ", "Validación de
+ * fechas"); `page` distingue frente (1) / reverso (2) cuando la validación FAD lo reporta por
+ * lado del documento (authenticity/imageQuality), null cuando no aplica.
+ */
+export interface NormalizedDocumentCheck {
+  category: string;
+  page: number | null;
+  name: string;
+  description: string | null;
+  result: string;
+  resultDescription: string | null;
+  sources: string[] | null;
+}
+
 export interface NormalizedValidationDetail {
   validationId: string | null;
   processName: string;
@@ -60,6 +80,12 @@ export interface NormalizedValidationDetail {
     emailMasked: string;
     phone: string | null;
   };
+  /** Campos adicionales de `getValidationData.data.client` (apellidoPaterno, apellidoMaterno,
+   * curp, rfc, nacionalidad, etc. — confirmados con una respuesta real de FAD), cuando FAD los
+   * devuelve poblados. No se enmascaran (a diferencia de `client.name/email`) porque se muestran
+   * junto a la comparación contra Registraduría/RENAPO, donde el operador necesita verlos en
+   * claro para auditar el resultado. */
+  clientDetails: Record<string, unknown> | null;
 
   steps: NormalizedStep[];
   progressPercent: number;
@@ -77,6 +103,23 @@ export interface NormalizedValidationDetail {
   location: { latitude: string | null; longitude: string | null } | null;
   externalValidations: Record<string, unknown>;
   alerts: unknown[];
+  /** Validación de ID del paso `captureId` (datos cruzados, autenticidad, calidad de imagen,
+   * MRZ, fechas) — ver `NormalizedDocumentCheck`. Vacío cuando el paso `captureId` todavía no
+   * tiene `data.alerts` (paso pendiente) o el proveedor no devolvió ese detalle. */
+  documentChecks: NormalizedDocumentCheck[];
+  /** Folios y respuestas de validación contra gobierno (Registraduría/RENAPO/CECOBAN/ENROLL —
+   * `getValidationData.data.{folio,folioProceso,folioCecoban,respuestaRenapo,respuestaCecoban,
+   * respuestaEnroll,dataValidationRenapo,dataValidationSat,dataValidationFimpeRPADto,
+   * dataValidationFimpeLN,dataValidationId,idVsRegistraduriaSimilarity}` — confirmado con una
+   * respuesta real de FAD, no documentado en el PDF ni en la colección Postman). `null` cuando
+   * ninguno de estos campos viene poblado (validación aún no llegó a esa etapa, o el ambiente no
+   * usa validación contra gobierno). */
+  governmentValidation: Record<string, unknown> | null;
+  /** `getValidationData.data.naatCheck` — resultado de NAAT-CHECK expuesto también en el detalle
+   * completo de la validación (no solo en el paso `check`), con la forma que muestra el propio
+   * Portal FAD ("NAAT Check": resultado/id/riesgo/clave/descripción de la clave). `null` cuando
+   * FAD todavía no lo devuelve. */
+  naatCheckResult: Record<string, unknown> | null;
   mediaAssets: NormalizedMediaAsset[];
 
   raw: {

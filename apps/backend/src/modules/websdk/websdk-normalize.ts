@@ -287,6 +287,7 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
       emailMasked: maskEmail(input.client.mail),
       phone: null,
     },
+    clientDetails: null,
     steps,
     progressPercent: 100,
     startedAt: input.startedAt,
@@ -301,6 +302,9 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
     location: null,
     externalValidations,
     alerts,
+    documentChecks: [],
+    governmentValidation: null,
+    naatCheckResult: null,
     mediaAssets,
     raw: {
       createResponse: null,
