@@ -1,0 +1,40 @@
+{
+  "sdkBaseUrl": "https://uathaapiframe.firmaautografa.com",
+  "sdkRequestId": "mi-app-web",
+
+  "documentCaptureEngine": "REGULA",
+  "regulaLicense": "CAMBIAR_LICENCIA_REGULA_EN_BASE64",
+  "regulaApiBasePath": "https://interno.mi-dominio.com/regula",
+  "regulaCaptureType": "CAMERA_SNAPSHOT",
+  "regulaParams": {
+    "idData": true,
+    "idPhoto": true
+  },
+  "regulaConfiguration": {
+    "output": {
+      "idPhoto": true,
+      "idData": true,
+      "originalPhoto": false
+    }
+  },
+
+  "biometricEngine": "FACETEC",
+  "facetecUseMiddleware": true,
+  "facetecMiddleware": {
+    "module": "facetec",
+    "provider": "firmaautografa",
+    "platform": "web",
+    "app": "MI-APP-WEB",
+    "version": "1.0.0"
+  },
+  "facetecConfiguration": {},
+
+  "checkEndpoint": "/naat-check-api/idholo/multiple",
+  "compareFacesEndpoint": "/biometrics/compareFacesPassive",
+  "getValidationKeysEndpoint": "/validation/validations/getValidationKeys",
+  "saveValidationDataEndpoint": "/validation/validations/saveValidationData",
+
+  "checkMaxAttempts": 3,
+  "checkAcceptedRisk": "LOW",
+  "faceMatchMinConfidence": 85
+}

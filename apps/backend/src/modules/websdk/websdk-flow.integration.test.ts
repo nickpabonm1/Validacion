@@ -205,3 +205,81 @@ describe("websdk-flow (integración): captura Acuant + Facetec orquestada por el
     expect(execution.result).toBe("REJECTED");
   });
 });
+
+async function setupRegulaEnvironment() {
+  await prisma.validationExecution.deleteMany();
+  await prisma.webSdkConfig.deleteMany();
+  await prisma.apiEnvironment.deleteMany();
+
+  const environment = await prisma.apiEnvironment.create({
+    data: {
+      name: "Env de prueba Web SDK (Regula)",
+      environmentType: "UATHA",
+      baseUrl: "https://fad.test.invalid",
+      integrationModel: "WEB_SDK",
+      basicAuthUsernameEnc: credentialEncryptionService.encrypt("basic-user"),
+      basicAuthPasswordEnc: credentialEncryptionService.encrypt("basic-pass"),
+      apiUsernameEnc: credentialEncryptionService.encrypt("api-user"),
+      apiPasswordEnc: credentialEncryptionService.encrypt("api-pass"),
+      passwordIsPreHashed: true,
+    },
+  });
+
+  await prisma.webSdkConfig.create({
+    data: {
+      environmentId: environment.id,
+      sdkBaseUrl: "https://sdk.test.invalid",
+      documentCaptureEngine: "REGULA",
+      regulaLicenseEnc: credentialEncryptionService.encrypt("regula-license-base64"),
+      regulaApiBasePath: "https://interno.test.invalid/regula",
+      regulaCaptureType: "CAMERA_SNAPSHOT",
+      checkMaxAttempts: 2,
+      checkAcceptedRisk: "LOW",
+      faceMatchMinConfidence: 85,
+    },
+  });
+
+  clearCachedToken(environment.id);
+  return environment.id;
+}
+
+describe("websdk-flow (integración): motor de captura Regula", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it("arma sdkInit.regula (no sdkInit.acuant) con las credenciales de Regula del ambiente", async () => {
+    const environmentId = await setupRegulaEnvironment();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(tokenResponse()));
+
+    const { sdkInit } = await startWebSdkExecution(
+      { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+      null,
+    );
+
+    expect(sdkInit.documentCaptureEngine).toBe("REGULA");
+    expect(sdkInit.acuant).toBeUndefined();
+    expect(sdkInit.regula).toMatchObject({
+      credentials: { license: "regula-license-base64", apiBasePath: "https://interno.test.invalid/regula" },
+      idData: true,
+      idPhoto: true,
+      captureType: "CAMERA_SNAPSHOT",
+    });
+  });
+
+  it("rechaza iniciar una sesión Regula sin licencia/apiBasePath configurados", async () => {
+    const environmentId = await setupRegulaEnvironment();
+    await prisma.webSdkConfig.update({ where: { environmentId }, data: { regulaLicenseEnc: null } });
+
+    await expect(
+      startWebSdkExecution(
+        { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+        null,
+      ),
+    ).rejects.toThrow(/licencia.*apiBasePath.*Regula/i);
+  });
+});

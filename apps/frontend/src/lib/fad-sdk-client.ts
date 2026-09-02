@@ -84,7 +84,9 @@ function readImageQuality(image: Record<string, unknown> | undefined): WebSdkIma
 export async function runAcuantCapture(init: WebSdkSessionInitDto): Promise<WebSdkAcuantResultInput> {
   const client = initSdk(init);
   try {
-    const { credentials, params, configuration } = init.acuant;
+    const acuant = init.acuant;
+    if (!acuant) throw new Error("Falta la configuración de Acuant en la sesión del SDK.");
+    const { credentials, params, configuration } = acuant;
     const response = await client.startAcuant(credentials, params.idData, params.idPhoto, params.manualCapture, configuration);
     const data = (response?.data ?? {}) as Record<string, unknown>;
     const id = (data.id ?? {}) as Record<string, unknown>;
@@ -107,6 +109,78 @@ export async function runAcuantCapture(init: WebSdkSessionInitDto): Promise<WebS
       alerts: Array.isArray(idData.alerts) ? (idData.alerts as Record<string, unknown>[]) : undefined,
       frontQuality: readImageQuality(front),
       backQuality: readImageQuality(back),
+    };
+  } finally {
+    endSdk();
+  }
+}
+
+const REGULA_ALERT_CATEGORIES = ["authenticity", "dateChecks", "imageQuality", "mrzCheckDigit", "textCrossChecks"] as const;
+
+/** Regula devuelve `alerts` como un objeto agrupado por categoría (cada una un array) — ver "FAD
+ * SDK Web Regula" §Result — a diferencia del array plano de Acuant. Se aplana a un array único
+ * con `category` en cada elemento para reutilizar el mismo campo `alerts` (y el mismo
+ * renderizador del reporte) sin importar el motor de captura. Función pura, sin llamadas al SDK,
+ * para poder probarse con datos de ejemplo. */
+export function flattenRegulaAlerts(alerts: Record<string, unknown> | undefined): Record<string, unknown>[] {
+  if (!alerts) return [];
+  const flat: Record<string, unknown>[] = [];
+  for (const category of REGULA_ALERT_CATEGORIES) {
+    const entries = alerts[category];
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) {
+      flat.push(typeof entry === "object" && entry !== null ? { category, ...entry } : { category, value: entry });
+    }
+  }
+  return flat;
+}
+
+/** Ejecuta la captura de identificación con Regula (iframe). Puerto de "FAD SDK Web Regula"
+ * §Initiate the Process / §Result — la respuesta se normaliza a la misma forma que
+ * `runAcuantCapture` (`WebSdkAcuantResultInput`) para que el resto del flujo (NAAT-CHECK,
+ * compareFacesPassive, saveValidationData) funcione igual sin importar el motor de captura.
+ * Importante: el orden de argumentos de `startRegula` en el paquete instalado
+ * (`credentials, captureType, idData, idPhoto, configuration`) difiere del ejemplo de código del
+ * PDF (`credentials, idData, idPhoto, captureType, configuration`) — se sigue la firma real del
+ * paquete `@fad-producto/fad-sdk`, que es lo que efectivamente se ejecuta. */
+export async function runRegulaCapture(init: WebSdkSessionInitDto): Promise<WebSdkAcuantResultInput> {
+  const client = initSdk(init);
+  try {
+    const regula = init.regula;
+    if (!regula) throw new Error("Falta la configuración de Regula en la sesión del SDK.");
+    // `RegulaCaptureType` es un enum del paquete `@fad-producto/fad-sdk` (no está re-exportado en
+    // el nivel superior del paquete, solo vía `FadSDK.Constants.Regula.CaptureType`); como los
+    // valores del enum son idénticos a sus llaves ("CAMERA_SNAPSHOT"/"DOCUMENT_READER"), indexar
+    // por llave da el valor tipado correcto sin un cast inseguro.
+    const captureType = FadSDK.Constants.Regula.CaptureType[regula.captureType];
+    const response = await client.startRegula(regula.credentials, captureType, regula.idData, regula.idPhoto, regula.configuration);
+    const data = (response?.data ?? {}) as Record<string, unknown>;
+    const id = (data.id ?? {}) as Record<string, unknown>;
+    const idData = (data.idData ?? {}) as Record<string, unknown>;
+    const { ocr, ocrPhoto, ocrSignature, ocrFingerprint } = splitOcrImages(idData.ocr as Record<string, unknown> | undefined);
+    // `alerts` viaja junto a `event`/`data` en la respuesta (ver "FAD SDK Web Regula" §Result),
+    // pero `ResponseModule` (el tipo declarado por el paquete) no lo declara — se toma con un
+    // cast puntual, no se fabrica el dato.
+    const responseWithAlerts = response as unknown as { alerts?: Record<string, unknown> };
+    const alerts = flattenRegulaAlerts(responseWithAlerts?.alerts);
+
+    return {
+      // A diferencia de Acuant (`id.front.image.data`), Regula devuelve `id.front`/`id.back`
+      // directamente como string base64.
+      frontImage: toDataUri(id.front as string | undefined),
+      backImage: toDataUri(id.back as string | undefined),
+      idPhoto: toDataUri(data.idPhoto as string | undefined),
+      originalPhoto: toDataUri(data.originalPhoto as string | undefined),
+      ocr,
+      ocrPhoto,
+      ocrSignature,
+      ocrFingerprint,
+      alerts: alerts.length > 0 ? alerts : undefined,
+      regulaData: Array.isArray(data.regulaData) ? (data.regulaData as Record<string, unknown>[]) : undefined,
+      regulaResponse:
+        typeof data.regulaResponse === "object" && data.regulaResponse !== null
+          ? (data.regulaResponse as Record<string, unknown>)
+          : undefined,
     };
   } finally {
     endSdk();

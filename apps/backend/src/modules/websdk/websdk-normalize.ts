@@ -151,6 +151,10 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
   addAsset("captureId", "ocrPhoto", input.acuant.ocrPhoto);
   addAsset("captureId", "ocrSignature", input.acuant.ocrSignature);
   addAsset("captureId", "ocrFingerprint", input.acuant.ocrFingerprint);
+  // `originalPhoto` es propio de Regula (imagen original capturada antes de recorte/procesado —
+  // ver "FAD SDK Web Regula" §Result); Acuant no lo devuelve, así que esto no agrega nada cuando
+  // el motor de captura fue Acuant.
+  addAsset("captureId", "originalPhoto", input.acuant.originalPhoto);
   addAsset("liveness", "selfie", input.facetec.selfie);
   if (input.facetec.auditTrail?.[0]) addAsset("liveness", "auditTrail", input.facetec.auditTrail[0]);
 
@@ -181,6 +185,13 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
   };
   if (input.acuant.validation && Object.keys(input.acuant.validation).length > 0) {
     externalValidations.document_validation = input.acuant.validation;
+  }
+  // `regulaData`/`regulaResponse` (ver "FAD SDK Web Regula" §Result): se preservan tal cual los
+  // devuelve el proveedor, sin interpretarlos — nunca se fabrica ni se descarta esta información
+  // solo porque Acuant no tiene un equivalente.
+  if (input.acuant.regulaData?.length) externalValidations.regula_data = input.acuant.regulaData;
+  if (input.acuant.regulaResponse && Object.keys(input.acuant.regulaResponse).length > 0) {
+    externalValidations.regula_response = input.acuant.regulaResponse;
   }
   for (const key of SAVE_RESULT_EXTERNAL_VALIDATION_KEYS) {
     const value = input.saveResult[key];

@@ -101,22 +101,51 @@ endpoints REST de FAD, no la configuración de los SDK de Acuant/Facetec).
 - **Frontend**: configuración Web SDK y navegación del asistente verificadas en navegador real
   (Playwright) contra el backend real de esta consola.
 - **No verificado** (y no se puede verificar sin credenciales reales, que este proyecto nunca
-  usa): la ejecución real de `startAcuant()`/`startFacetec()` contra los servidores de Acuant y
-  Facetec, ni una llamada real a `saveValidationData` de FAD. La lógica del lado del backend está
+  usa): la ejecución real de `startAcuant()`/`startRegula()`/`startFacetec()` contra los
+  servidores de Acuant, Regula y Facetec, ni una llamada real a `saveValidationData` de FAD. La
+  lógica del lado del backend está
   implementada exactamente como documentan los PDF oficiales y el proyecto de referencia
   verificado, pero un primer uso contra un ambiente UATHA real de un cliente debe tratarse como
   una prueba piloto.
 
+## Regula (motor alternativo de captura documental)
+
+Implementado según `FAD_SDK_Web_Regula_current_Version_1.docx` — un ambiente Web SDK elige
+`documentCaptureEngine: ACUANT | REGULA` (Ambientes → pestaña «Web SDK» → «Motor de captura»); es
+mutuamente excluyente con Acuant, igual que documenta el SDK. `runRegulaCapture` en
+`apps/frontend/src/lib/fad-sdk-client.ts` normaliza el resultado a la misma forma
+(`WebSdkAcuantResultInput`) que usa Acuant, así que el resto del flujo (NAAT-CHECK,
+compareFacesPassive, saveValidationData, el reporte) funciona igual sin importar el motor.
+
+Diferencias de forma frente a Acuant que sí se modelaron explícitamente (ver
+`websdk-normalize.ts`/`fad-sdk-client.ts`):
+- `data.id.front`/`data.id.back` vienen como `string` directo (Acuant los anida en
+  `id.front.image.data`).
+- `data.originalPhoto` (imagen original antes de recorte) no tiene equivalente en Acuant — se
+  muestra como un `mediaAsset` más.
+- `data.regulaData`/`data.regulaResponse` (datos crudos del proveedor) se preservan sin
+  interpretar en `externalValidations`, nunca se descartan ni se fabrican.
+- `alerts` llega agrupado por categoría (`authenticity`, `dateChecks`, `imageQuality`,
+  `mrzCheckDigit`, `textCrossChecks`) en vez del array plano de Acuant — `flattenRegulaAlerts` lo
+  aplana a un array único con `category` en cada entrada para reutilizar el mismo renderizador de
+  alertas del reporte.
+
+**Discrepancia encontrada entre el docx y el paquete real instalado** (`@fad-producto/fad-sdk`,
+ver `node_modules/@fad-producto/fad-sdk/dist/types/fad-sdk.d.ts`) — se siguió el paquete real, no
+la prosa del docx, porque es lo que efectivamente se ejecuta en el navegador:
+- El docx documenta `startRegula(credentials, idData, idPhoto, captureType, configuration)`; la
+  firma real del paquete instalado es `startRegula(credentials, captureType, idData, idPhoto,
+  configuration)` — el orden de `captureType` cambia.
+- El docx documenta un tercer `captureType` (`DESKTOP`, "carga de archivo"); el enum
+  `RegulaCaptureType` del paquete instalado solo define `CAMERA_SNAPSHOT` y `DOCUMENT_READER`
+  (ver `constants/regula/card-type/regula-capture-type.enum.d.ts`) — por eso
+  `REGULA_CAPTURE_TYPES` en `packages/shared-types/src/enums.ts` solo lista esos dos. El JSDoc del
+  método sí menciona un "desktop process" cuyo `captureType` "will be ignored", lo que sugiere que
+  ese modo se activa vía `configuration.captureSource`/`capture.desktop` (documentado en el docx)
+  en vez de por un valor de `captureType` propio.
+
 ## Limitaciones conocidas / trabajo futuro
 
-- **Regula** (motor alternativo de captura documental, además de Acuant) está soportado por
-  `@fad-producto/fad-sdk` (`startRegula`) y documentado en el PDF `FAD SDK Web Regula`, pero no
-  se implementó: no existe una referencia probada equivalente al proyecto Angular (que solo usa
-  Acuant), y agregarlo sin verificación aumentaría el riesgo de un flujo de captura mal
-  configurado. `WebSdkConfig.documentCaptureEngine` ya reserva el campo para esto.
-  `DOCUMENT_CAPTURE_ENGINES` en `packages/shared-types/src/enums.ts` solo lista `ACUANT`; agregar
-  `REGULA` ahí y el método `startRegula` en `apps/frontend/src/lib/fad-sdk-client.ts` es el punto
-  de partida.
 - Huellas dactilares, firma, video-acuerdo y demás módulos del SDK (`startIdentyFingerprints`,
   `startSignature`, `startVideoagreement`, etc.) tampoco están integrados; el flujo implementado
   cubre exactamente el camino documento→riesgo→vida→comparación→guardado del proyecto de

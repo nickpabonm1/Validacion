@@ -19,10 +19,18 @@ export type ConfigurableHttpMethod = (typeof HTTP_METHODS)[number];
 export const INTEGRATION_MODELS = ["API_BY_STEPS", "WEB_SDK"] as const;
 export type IntegrationModel = (typeof INTEGRATION_MODELS)[number];
 
-/** Motor de captura documental para el modelo Web SDK. Solo Acuant está implementado por ahora;
- * Regula queda documentado como trabajo futuro (ver docs/websdk-integration.md). */
-export const DOCUMENT_CAPTURE_ENGINES = ["ACUANT"] as const;
+/** Motor de captura documental para el modelo Web SDK — ver docs/websdk-integration.md. */
+export const DOCUMENT_CAPTURE_ENGINES = ["ACUANT", "REGULA"] as const;
 export type DocumentCaptureEngine = (typeof DOCUMENT_CAPTURE_ENGINES)[number];
+
+/** CaptureType de `startRegula()`: DOCUMENT_READER (automático) | CAMERA_SNAPSHOT (manual).
+ * El PDF "FAD SDK Web Regula" §Initiate the Process también documenta un tercer valor `DESKTOP`
+ * (carga de archivo), pero el enum `RegulaCaptureType` del paquete instalado
+ * `@fad-producto/fad-sdk` (ver node_modules/@fad-producto/fad-sdk/dist/types/constants/regula/
+ * card-type/regula-capture-type.enum.d.ts) solo define estos dos — se sigue el paquete real
+ * instalado, no la prosa del PDF, porque es lo que efectivamente se ejecuta en el navegador. */
+export const REGULA_CAPTURE_TYPES = ["DOCUMENT_READER", "CAMERA_SNAPSHOT"] as const;
+export type RegulaCaptureType = (typeof REGULA_CAPTURE_TYPES)[number];
 
 /** Motor de prueba de vida para el modelo Web SDK. Solo Facetec está implementado. */
 export const BIOMETRIC_ENGINES = ["FACETEC"] as const;

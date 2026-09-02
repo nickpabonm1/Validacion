@@ -48,6 +48,15 @@ export const WebSdkAcuantResultInputSchema = z.object({
   alerts: z.array(z.record(z.unknown())).optional(),
   frontQuality: WebSdkImageQualitySchema.optional(),
   backQuality: WebSdkImageQualitySchema.optional(),
+  /** Campos propios de `startRegula()` (ver "FAD SDK Web Regula" §Result) — el downstream
+   * (NAAT-CHECK, compareFacesPassive, saveValidationData) es el mismo sin importar el motor de
+   * captura, así que este schema es compartido entre Acuant y Regula pese al nombre. */
+  originalPhoto: z.string().optional(),
+  /** `data.regulaData`: pares clave/valor tal como los devuelve el proveedor — se preserva sin
+   * interpretar (nunca se fabrica), para no perder información que Acuant no expone. */
+  regulaData: z.array(z.record(z.unknown())).optional(),
+  /** `data.regulaResponse`: respuesta cruda del proveedor Regula. */
+  regulaResponse: z.record(z.unknown()).optional(),
 });
 export type WebSdkAcuantResultInput = z.infer<typeof WebSdkAcuantResultInputSchema>;
 

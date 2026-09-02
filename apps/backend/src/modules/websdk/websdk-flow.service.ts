@@ -3,6 +3,7 @@ import type {
   WebSdkCheckResultDto,
   DocumentCaptureEngine,
   BiometricEngine,
+  RegulaCaptureType,
 } from "@fad-console/shared-types";
 import type {
   WebSdkStartInput,
@@ -79,11 +80,20 @@ async function buildSdkInit(
   config: NonNullable<WebSdkConfigRow>,
 ): Promise<WebSdkSessionInitDto> {
   const creds = decryptWebSdkCredentials(config);
+  const documentCaptureEngine = config.documentCaptureEngine as DocumentCaptureEngine;
 
-  if (!creds.acuantPassiveUsername || !creds.acuantPassivePassword || !creds.acuantPassiveSubscriptionId) {
-    throw AppError.badRequest(
-      "Configura las credenciales de Acuant en Ambientes > Web SDK antes de iniciar una captura.",
-    );
+  if (documentCaptureEngine === "ACUANT") {
+    if (!creds.acuantPassiveUsername || !creds.acuantPassivePassword || !creds.acuantPassiveSubscriptionId) {
+      throw AppError.badRequest(
+        "Configura las credenciales de Acuant en Ambientes > Web SDK antes de iniciar una captura.",
+      );
+    }
+  } else {
+    if (!creds.regulaLicense || !config.regulaApiBasePath) {
+      throw AppError.badRequest(
+        "Configura la licencia y el apiBasePath de Regula en Ambientes > Web SDK antes de iniciar una captura.",
+      );
+    }
   }
   if (!config.facetecUseMiddleware) {
     if (
@@ -105,19 +115,31 @@ async function buildSdkInit(
     sdkEnvironment: environment.environmentType === "PRODUCTION" ? "PROD" : "UATHA",
     sdkBaseUrl: config.sdkBaseUrl,
     sdkRequestId: config.sdkRequestId,
-    documentCaptureEngine: config.documentCaptureEngine as DocumentCaptureEngine,
-    acuant: {
-      credentials: {
-        passiveUsername: creds.acuantPassiveUsername,
-        passivePassword: creds.acuantPassivePassword,
-        passiveSubscriptionId: creds.acuantPassiveSubscriptionId,
-        acasEndpoint: config.acuantAcasEndpoint,
-        livenessEndpoint: config.acuantLivenessEndpoint,
-        assureidEndpoint: config.acuantAssureidEndpoint,
-      },
-      params: fromJsonField(config.acuantParams, { idData: true, idPhoto: true, manualCapture: false }),
-      configuration: fromJsonField(config.acuantConfiguration, {}),
-    },
+    documentCaptureEngine,
+    acuant:
+      documentCaptureEngine === "ACUANT"
+        ? {
+            credentials: {
+              passiveUsername: creds.acuantPassiveUsername!,
+              passivePassword: creds.acuantPassivePassword!,
+              passiveSubscriptionId: creds.acuantPassiveSubscriptionId!,
+              acasEndpoint: config.acuantAcasEndpoint,
+              livenessEndpoint: config.acuantLivenessEndpoint,
+              assureidEndpoint: config.acuantAssureidEndpoint,
+            },
+            params: fromJsonField(config.acuantParams, { idData: true, idPhoto: true, manualCapture: false }),
+            configuration: fromJsonField(config.acuantConfiguration, {}),
+          }
+        : undefined,
+    regula:
+      documentCaptureEngine === "REGULA"
+        ? {
+            credentials: { license: creds.regulaLicense!, apiBasePath: config.regulaApiBasePath! },
+            ...fromJsonField(config.regulaParams, { idData: true, idPhoto: true }),
+            captureType: config.regulaCaptureType as RegulaCaptureType,
+            configuration: fromJsonField(config.regulaConfiguration, {}),
+          }
+        : undefined,
     biometricEngine: config.biometricEngine as BiometricEngine,
     facetec: {
       useMiddleware: config.facetecUseMiddleware,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitOcrImages, toDataUri } from "./fad-sdk-client";
+import { flattenRegulaAlerts, splitOcrImages, toDataUri } from "./fad-sdk-client";
 
 const LONG_BASE64 = "A".repeat(150); // > 100 chars, solo caracteres base64 válidos
 
@@ -36,6 +36,26 @@ describe("splitOcrImages", () => {
     const result = splitOcrImages({ photo: LONG_BASE64 });
     expect(result.ocr).toBeUndefined();
     expect(result.ocrPhoto).toBeDefined();
+  });
+});
+
+describe("flattenRegulaAlerts", () => {
+  it("aplana las categorías de Regula (authenticity/dateChecks/...) en un único array con `category`", () => {
+    const result = flattenRegulaAlerts({
+      authenticity: [{ type: "MRZ", result: "OK" }],
+      imageQuality: [{ type: "FOCUS", result: "WARN" }, { type: "GLARE", result: "OK" }],
+    });
+    expect(result).toEqual([
+      { category: "authenticity", type: "MRZ", result: "OK" },
+      { category: "imageQuality", type: "FOCUS", result: "WARN" },
+      { category: "imageQuality", type: "GLARE", result: "OK" },
+    ]);
+  });
+
+  it("ignora categorías ausentes o que no sean un array, sin fabricar entradas", () => {
+    expect(flattenRegulaAlerts(undefined)).toEqual([]);
+    expect(flattenRegulaAlerts({ authenticity: "no es un array" })).toEqual([]);
+    expect(flattenRegulaAlerts({})).toEqual([]);
   });
 });
 

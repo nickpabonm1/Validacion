@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DOCUMENT_CAPTURE_ENGINES, BIOMETRIC_ENGINES, RISK_LEVELS } from "@fad-console/shared-types";
+import { DOCUMENT_CAPTURE_ENGINES, BIOMETRIC_ENGINES, RISK_LEVELS, REGULA_CAPTURE_TYPES } from "@fad-console/shared-types";
 
 /**
  * Copy configurable del front de onboarding Web SDK (`WebSdkCapturePage`), de cara al cliente
@@ -62,6 +62,17 @@ export const WebSdkConfigInputSchema = z.object({
     .object({ idData: z.boolean(), idPhoto: z.boolean(), manualCapture: z.boolean() })
     .default({ idData: true, idPhoto: true, manualCapture: false }),
   acuantConfiguration: z.record(z.unknown()).default({}),
+
+  /** Licencia de Regula, provista en Base64 por el equipo de NA-AT Tech (ver "FAD SDK Web
+   * Regula" §Credentials) — opcional aquí: vacío = "no cambiar" en una edición. */
+  regulaLicense: z.string().max(8000).optional(),
+  /** URL interna del proveedor Regula ("The apiBasePath must always be an internal URL"). */
+  regulaApiBasePath: z.string().url().optional().nullable(),
+  /** RegulaCaptureType: DOCUMENT_READER | CAMERA_SNAPSHOT | DESKTOP. */
+  regulaCaptureType: z.enum(REGULA_CAPTURE_TYPES).default("CAMERA_SNAPSHOT"),
+  regulaParams: z.object({ idData: z.boolean(), idPhoto: z.boolean() }).default({ idData: true, idPhoto: true }),
+  /** Objeto CONFIGURATION de startRegula (colores/leyendas/vistas) — no contiene secretos. */
+  regulaConfiguration: z.record(z.unknown()).default({}),
 
   biometricEngine: z.enum(BIOMETRIC_ENGINES).default("FACETEC"),
   facetecUseMiddleware: z.boolean().default(true),

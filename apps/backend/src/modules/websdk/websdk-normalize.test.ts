@@ -150,6 +150,36 @@ describe("buildWebSdkNormalizedDetail", () => {
     expect(detail.externalValidations.dataValidationRenapo).toEqual({ match: true });
     expect(detail.externalValidations.dataValidationSat).toBeUndefined();
   });
+
+  it("agrega originalPhoto (propio de Regula) como mediaAsset cuando viene presente", () => {
+    const detail = buildWebSdkNormalizedDetail(baseInput({ acuant: { ...baseInput().acuant, originalPhoto: "base64original" } }));
+    expect(detail.mediaAssets.some((a) => a.label === "originalPhoto")).toBe(true);
+  });
+
+  it("no genera un mediaAsset originalPhoto cuando Acuant no lo devuelve", () => {
+    const detail = buildWebSdkNormalizedDetail(baseInput());
+    expect(detail.mediaAssets.some((a) => a.label === "originalPhoto")).toBe(false);
+  });
+
+  it("preserva regulaData/regulaResponse en externalValidations sin interpretarlos", () => {
+    const detail = buildWebSdkNormalizedDetail(
+      baseInput({
+        acuant: {
+          ...baseInput().acuant,
+          regulaData: [{ key: "documentNumber", value: "0000000000" }],
+          regulaResponse: { providerStatus: "ok" },
+        },
+      }),
+    );
+    expect(detail.externalValidations.regula_data).toEqual([{ key: "documentNumber", value: "0000000000" }]);
+    expect(detail.externalValidations.regula_response).toEqual({ providerStatus: "ok" });
+  });
+
+  it("no agrega regula_data/regula_response cuando están ausentes (nunca se fabrican)", () => {
+    const detail = buildWebSdkNormalizedDetail(baseInput());
+    expect(detail.externalValidations.regula_data).toBeUndefined();
+    expect(detail.externalValidations.regula_response).toBeUndefined();
+  });
 });
 
 describe("buildMetadataJson", () => {

@@ -1,4 +1,4 @@
-import type { WebSdkConfigDto, DocumentCaptureEngine, BiometricEngine, RiskLevel } from "@fad-console/shared-types";
+import type { WebSdkConfigDto, DocumentCaptureEngine, BiometricEngine, RiskLevel, RegulaCaptureType } from "@fad-console/shared-types";
 import type { WebSdkConfigInput } from "@fad-console/validation-schemas";
 import { DEFAULT_ONBOARDING_MESSAGES } from "@fad-console/validation-schemas";
 import { prisma } from "../../lib/prisma";
@@ -25,6 +25,12 @@ export function toWebSdkConfigDto(config: WebSdkConfigRecord): WebSdkConfigDto {
     acuantAssureidEndpoint: config.acuantAssureidEndpoint,
     acuantParams: fromJsonField(config.acuantParams, { idData: true, idPhoto: true, manualCapture: false }),
     acuantConfiguration: fromJsonField(config.acuantConfiguration, {}),
+
+    regulaLicenseConfigured: credentialEncryptionService.isConfigured(config.regulaLicenseEnc),
+    regulaApiBasePath: config.regulaApiBasePath,
+    regulaCaptureType: config.regulaCaptureType as RegulaCaptureType,
+    regulaParams: fromJsonField(config.regulaParams, { idData: true, idPhoto: true }),
+    regulaConfiguration: fromJsonField(config.regulaConfiguration, {}),
 
     biometricEngine: config.biometricEngine as BiometricEngine,
     facetecUseMiddleware: config.facetecUseMiddleware,
@@ -69,6 +75,7 @@ function buildEncryptedFields(input: WebSdkConfigInput) {
     acuantPassiveUsernameEnc: credentialEncryptionService.encryptIfPresent(input.acuantPassiveUsername),
     acuantPassivePasswordEnc: credentialEncryptionService.encryptIfPresent(input.acuantPassivePassword),
     acuantPassiveSubscriptionIdEnc: credentialEncryptionService.encryptIfPresent(input.acuantPassiveSubscriptionId),
+    regulaLicenseEnc: credentialEncryptionService.encryptIfPresent(input.regulaLicense),
     facetecDeviceKeyIdentifierEnc: credentialEncryptionService.encryptIfPresent(input.facetecDeviceKeyIdentifier),
     facetecPublicFaceScanEncryptionKeyEnc: credentialEncryptionService.encryptIfPresent(
       input.facetecPublicFaceScanEncryptionKey,
@@ -91,6 +98,10 @@ export async function upsertWebSdkConfig(environmentId: string, input: WebSdkCon
     acuantAssureidEndpoint: input.acuantAssureidEndpoint,
     acuantParams: toJsonField(input.acuantParams),
     acuantConfiguration: toJsonField(input.acuantConfiguration),
+    regulaApiBasePath: input.regulaApiBasePath ?? null,
+    regulaCaptureType: input.regulaCaptureType,
+    regulaParams: toJsonField(input.regulaParams),
+    regulaConfiguration: toJsonField(input.regulaConfiguration),
     biometricEngine: input.biometricEngine,
     facetecUseMiddleware: input.facetecUseMiddleware,
     facetecMiddleware: toJsonField(input.facetecMiddleware),
@@ -117,6 +128,7 @@ const CREDENTIAL_FIELD_MAP = {
   acuantPassiveUsername: "acuantPassiveUsernameEnc",
   acuantPassivePassword: "acuantPassivePasswordEnc",
   acuantPassiveSubscriptionId: "acuantPassiveSubscriptionIdEnc",
+  regulaLicense: "regulaLicenseEnc",
   facetecDeviceKeyIdentifier: "facetecDeviceKeyIdentifierEnc",
   facetecPublicFaceScanEncryptionKey: "facetecPublicFaceScanEncryptionKeyEnc",
   facetecProductionKeyText: "facetecProductionKeyTextEnc",
@@ -137,6 +149,7 @@ export function decryptWebSdkCredentials(config: WebSdkConfigRecord) {
     acuantPassiveUsername: credentialEncryptionService.decryptOrNull(config.acuantPassiveUsernameEnc),
     acuantPassivePassword: credentialEncryptionService.decryptOrNull(config.acuantPassivePasswordEnc),
     acuantPassiveSubscriptionId: credentialEncryptionService.decryptOrNull(config.acuantPassiveSubscriptionIdEnc),
+    regulaLicense: credentialEncryptionService.decryptOrNull(config.regulaLicenseEnc),
     facetecDeviceKeyIdentifier: credentialEncryptionService.decryptOrNull(config.facetecDeviceKeyIdentifierEnc),
     facetecPublicFaceScanEncryptionKey: credentialEncryptionService.decryptOrNull(
       config.facetecPublicFaceScanEncryptionKeyEnc,

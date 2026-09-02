@@ -1,4 +1,4 @@
-import type { EnvironmentType, UserRole, ConfigurableHttpMethod, IntegrationModel, DocumentCaptureEngine, BiometricEngine, RiskLevel } from "./enums";
+import type { EnvironmentType, UserRole, ConfigurableHttpMethod, IntegrationModel, DocumentCaptureEngine, BiometricEngine, RiskLevel, RegulaCaptureType } from "./enums";
 
 export interface AuthenticatedUserDto {
   id: string;
@@ -83,6 +83,12 @@ export interface WebSdkConfigDto {
   acuantParams: { idData: boolean; idPhoto: boolean; manualCapture: boolean };
   acuantConfiguration: Record<string, unknown>;
 
+  regulaLicenseConfigured: boolean;
+  regulaApiBasePath: string | null;
+  regulaCaptureType: RegulaCaptureType;
+  regulaParams: { idData: boolean; idPhoto: boolean };
+  regulaConfiguration: Record<string, unknown>;
+
   biometricEngine: BiometricEngine;
   facetecUseMiddleware: boolean;
   facetecMiddleware: Record<string, unknown>;
@@ -137,7 +143,8 @@ export interface WebSdkSessionInitDto {
   sdkBaseUrl: string;
   sdkRequestId: string | null;
   documentCaptureEngine: DocumentCaptureEngine;
-  acuant: {
+  /** Poblado solo cuando `documentCaptureEngine === "ACUANT"`. */
+  acuant?: {
     credentials: {
       passiveUsername: string;
       passivePassword: string;
@@ -147,6 +154,15 @@ export interface WebSdkSessionInitDto {
       assureidEndpoint: string;
     };
     params: { idData: boolean; idPhoto: boolean; manualCapture: boolean };
+    configuration: Record<string, unknown>;
+  };
+  /** Poblado solo cuando `documentCaptureEngine === "REGULA"` — ver "FAD SDK Web Regula"
+   * §Input parameters (`credentials = { license, apiBasePath }`, `captureType`). */
+  regula?: {
+    credentials: { license: string; apiBasePath: string };
+    idData: boolean;
+    idPhoto: boolean;
+    captureType: RegulaCaptureType;
     configuration: Record<string, unknown>;
   };
   biometricEngine: BiometricEngine;

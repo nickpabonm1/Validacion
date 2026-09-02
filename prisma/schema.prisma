@@ -124,6 +124,17 @@ model WebSdkConfig {
   /// JSON serializado: objeto CONFIGURATION de startAcuant (no contiene secretos)
   acuantConfiguration            String  @default("{}")
 
+  /// Licencia de Regula en Base64 (ver "FAD SDK Web Regula" §Credentials), cifrada.
+  regulaLicenseEnc    String?
+  /// URL interna del proveedor Regula ("apiBasePath must always be an internal URL").
+  regulaApiBasePath   String?
+  /// RegulaCaptureType: DOCUMENT_READER | CAMERA_SNAPSHOT | DESKTOP
+  regulaCaptureType   String  @default("CAMERA_SNAPSHOT")
+  /// JSON serializado: { idData, idPhoto }
+  regulaParams        String  @default("{\"idData\":true,\"idPhoto\":true}")
+  /// JSON serializado: objeto CONFIGURATION de startRegula (no contiene secretos)
+  regulaConfiguration String  @default("{}")
+
   /// BiometricEngine: FACETEC (único soportado)
   biometricEngine                       String  @default("FACETEC")
   facetecUseMiddleware                  Boolean @default(true)

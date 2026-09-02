@@ -28,6 +28,10 @@ const BLANK: WebSdkConfigInput = {
   acuantAssureidEndpoint: "https://eu.assureid.acuant.net",
   acuantParams: { idData: true, idPhoto: true, manualCapture: false },
   acuantConfiguration: {},
+  regulaApiBasePath: undefined,
+  regulaCaptureType: "CAMERA_SNAPSHOT",
+  regulaParams: { idData: true, idPhoto: true },
+  regulaConfiguration: {},
   biometricEngine: "FACETEC",
   facetecUseMiddleware: true,
   facetecMiddleware: {},
@@ -52,6 +56,10 @@ function toFormValues(config: WebSdkConfigDto): WebSdkConfigInput {
     acuantAssureidEndpoint: config.acuantAssureidEndpoint,
     acuantParams: config.acuantParams,
     acuantConfiguration: config.acuantConfiguration,
+    regulaApiBasePath: config.regulaApiBasePath ?? undefined,
+    regulaCaptureType: config.regulaCaptureType,
+    regulaParams: config.regulaParams,
+    regulaConfiguration: config.regulaConfiguration,
     biometricEngine: config.biometricEngine,
     facetecUseMiddleware: config.facetecUseMiddleware,
     facetecMiddleware: config.facetecMiddleware,
@@ -102,6 +110,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
   });
 
   const [acuantConfigurationText, setAcuantConfigurationText] = useState("{}");
+  const [regulaConfigurationText, setRegulaConfigurationText] = useState("{}");
   const [facetecMiddlewareText, setFacetecMiddlewareText] = useState("{}");
   const [facetecConfigurationText, setFacetecConfigurationText] = useState("{}");
   const [productionKeyTextJson, setProductionKeyTextJson] = useState("");
@@ -111,6 +120,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
     const values = config ? toFormValues(config) : BLANK;
     reset(values);
     setAcuantConfigurationText(JSON.stringify(values.acuantConfiguration, null, 2));
+    setRegulaConfigurationText(JSON.stringify(values.regulaConfiguration, null, 2));
     setFacetecMiddlewareText(JSON.stringify(values.facetecMiddleware, null, 2));
     setFacetecConfigurationText(JSON.stringify(values.facetecConfiguration, null, 2));
     setProductionKeyTextJson("");
@@ -139,6 +149,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
 
       for (const [key, value] of Object.entries(result.values) as [keyof WebSdkConfigInput, never][]) {
         if (key === "acuantConfiguration") setAcuantConfigurationText(JSON.stringify(value, null, 2));
+        else if (key === "regulaConfiguration") setRegulaConfigurationText(JSON.stringify(value, null, 2));
         else if (key === "facetecMiddleware") setFacetecMiddlewareText(JSON.stringify(value, null, 2));
         else if (key === "facetecConfiguration") setFacetecConfigurationText(JSON.stringify(value, null, 2));
         else if (key === "facetecProductionKeyText") setProductionKeyTextJson(JSON.stringify(value));
@@ -175,9 +186,10 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
 
   async function onSubmit(formValues: WebSdkConfigInput) {
     const acuantConfiguration = parseJsonBlob("Configuración de Acuant", acuantConfigurationText);
+    const regulaConfiguration = parseJsonBlob("Configuración de Regula", regulaConfigurationText);
     const facetecMiddleware = parseJsonBlob("Middleware de Facetec", facetecMiddlewareText);
     const facetecConfiguration = parseJsonBlob("Configuración de Facetec", facetecConfigurationText);
-    if (acuantConfiguration === null || facetecMiddleware === null || facetecConfiguration === null) return;
+    if (acuantConfiguration === null || regulaConfiguration === null || facetecMiddleware === null || facetecConfiguration === null) return;
 
     let facetecProductionKeyText: WebSdkConfigInput["facetecProductionKeyText"];
     if (productionKeyTextJson.trim()) {
@@ -193,7 +205,14 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
     try {
       await updateConfig.mutateAsync({
         environmentId: envId,
-        input: { ...formValues, acuantConfiguration, facetecMiddleware, facetecConfiguration, facetecProductionKeyText },
+        input: {
+          ...formValues,
+          acuantConfiguration,
+          regulaConfiguration,
+          facetecMiddleware,
+          facetecConfiguration,
+          facetecProductionKeyText,
+        },
       });
       notify({ title: "Configuración Web SDK guardada", tone: "success" });
       setProductionKeyTextJson("");
@@ -207,7 +226,8 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">
           Sube un archivo JSON con credenciales/endpoints Web SDK en vez de escribirlos a mano — ver{" "}
-          <code className="rounded bg-muted px-1 py-0.5">docs/examples/websdk-config.example.json</code> en el
+          <code className="rounded bg-muted px-1 py-0.5">docs/examples/websdk-config.example.json</code> (Acuant) o{" "}
+          <code className="rounded bg-muted px-1 py-0.5">websdk-config-regula.example.json</code> (Regula) en el
           repositorio.
         </p>
         <input
@@ -252,61 +272,100 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
 
       <Card>
         <CardHeader>
-          <CardTitle>Captura de documento (Acuant)</CardTitle>
+          <CardTitle>Captura de documento ({values.documentCaptureEngine === "REGULA" ? "Regula" : "Acuant"})</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <Field label="Motor de captura" htmlFor="documentCaptureEngine">
             <Select id="documentCaptureEngine" {...register("documentCaptureEngine")}>
               <option value="ACUANT">Acuant</option>
+              <option value="REGULA">Regula</option>
             </Select>
           </Field>
           <div />
-          <CredentialInput
-            id="acuantPassiveUsername"
-            label="Usuario Acuant"
-            configured={config?.acuantPassiveUsernameConfigured ?? false}
-            value={values.acuantPassiveUsername ?? ""}
-            onChange={(v) => setValue("acuantPassiveUsername", v)}
-            onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassiveUsername" })}
-          />
-          <CredentialInput
-            id="acuantPassivePassword"
-            label="Contraseña Acuant"
-            configured={config?.acuantPassivePasswordConfigured ?? false}
-            value={values.acuantPassivePassword ?? ""}
-            onChange={(v) => setValue("acuantPassivePassword", v)}
-            onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassivePassword" })}
-          />
-          <CredentialInput
-            id="acuantPassiveSubscriptionId"
-            label="Subscription ID Acuant"
-            configured={config?.acuantPassiveSubscriptionIdConfigured ?? false}
-            value={values.acuantPassiveSubscriptionId ?? ""}
-            onChange={(v) => setValue("acuantPassiveSubscriptionId", v)}
-            onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassiveSubscriptionId" })}
-          />
-          <Field label="Endpoint ACAS" htmlFor="acuantAcasEndpoint">
-            <Input id="acuantAcasEndpoint" {...register("acuantAcasEndpoint")} />
-          </Field>
-          <Field label="Endpoint Liveness (Acuant)" htmlFor="acuantLivenessEndpoint">
-            <Input id="acuantLivenessEndpoint" {...register("acuantLivenessEndpoint")} />
-          </Field>
-          <Field label="Endpoint AssureID" htmlFor="acuantAssureidEndpoint">
-            <Input id="acuantAssureidEndpoint" {...register("acuantAssureidEndpoint")} />
-          </Field>
-          <div className="flex flex-col gap-2 md:col-span-2">
-            <InlineSwitchField label="Extraer OCR (idData)" checked={values.acuantParams.idData} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, idData: v })} />
-            <InlineSwitchField label="Recortar rostro de la ID (idPhoto)" checked={values.acuantParams.idPhoto} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, idPhoto: v })} />
-            <InlineSwitchField label="Captura manual" checked={values.acuantParams.manualCapture} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, manualCapture: v })} />
-          </div>
-          <div className="md:col-span-2">
-            <JsonBlobField
-              label="Configuración visual de Acuant (JSON)"
-              hint="Objeto CONFIGURATION de startAcuant: colores, leyendas, vistas. No contiene secretos."
-              value={acuantConfigurationText}
-              onChange={setAcuantConfigurationText}
-            />
-          </div>
+          {values.documentCaptureEngine === "REGULA" ? (
+            <>
+              <CredentialInput
+                id="regulaLicense"
+                label="Licencia Regula (Base64)"
+                configured={config?.regulaLicenseConfigured ?? false}
+                value={values.regulaLicense ?? ""}
+                onChange={(v) => setValue("regulaLicense", v)}
+                onClear={() => clearCredential.mutate({ environmentId: envId, field: "regulaLicense" })}
+                hint="Provista por el equipo NA-AT Tech, ya codificada en Base64."
+              />
+              <Field label="apiBasePath (URL interna)" htmlFor="regulaApiBasePath" hint="Debe ser una URL interna, provista por el equipo de soluciones.">
+                <Input id="regulaApiBasePath" {...register("regulaApiBasePath")} />
+              </Field>
+              <Field label="Tipo de captura" htmlFor="regulaCaptureType">
+                <Select id="regulaCaptureType" {...register("regulaCaptureType")}>
+                  <option value="CAMERA_SNAPSHOT">Manual (CAMERA_SNAPSHOT)</option>
+                  <option value="DOCUMENT_READER">Automática (DOCUMENT_READER)</option>
+                </Select>
+              </Field>
+              <div />
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <InlineSwitchField label="Extraer OCR (idData)" checked={values.regulaParams.idData} onChange={(v) => setValue("regulaParams", { ...values.regulaParams, idData: v })} />
+                <InlineSwitchField label="Recortar rostro de la ID (idPhoto)" checked={values.regulaParams.idPhoto} onChange={(v) => setValue("regulaParams", { ...values.regulaParams, idPhoto: v })} />
+              </div>
+              <div className="md:col-span-2">
+                <JsonBlobField
+                  label="Configuración visual de Regula (JSON)"
+                  hint="Objeto CONFIGURATION de startRegula: colores, leyendas, vistas, captureSource. No contiene secretos."
+                  value={regulaConfigurationText}
+                  onChange={setRegulaConfigurationText}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <CredentialInput
+                id="acuantPassiveUsername"
+                label="Usuario Acuant"
+                configured={config?.acuantPassiveUsernameConfigured ?? false}
+                value={values.acuantPassiveUsername ?? ""}
+                onChange={(v) => setValue("acuantPassiveUsername", v)}
+                onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassiveUsername" })}
+              />
+              <CredentialInput
+                id="acuantPassivePassword"
+                label="Contraseña Acuant"
+                configured={config?.acuantPassivePasswordConfigured ?? false}
+                value={values.acuantPassivePassword ?? ""}
+                onChange={(v) => setValue("acuantPassivePassword", v)}
+                onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassivePassword" })}
+              />
+              <CredentialInput
+                id="acuantPassiveSubscriptionId"
+                label="Subscription ID Acuant"
+                configured={config?.acuantPassiveSubscriptionIdConfigured ?? false}
+                value={values.acuantPassiveSubscriptionId ?? ""}
+                onChange={(v) => setValue("acuantPassiveSubscriptionId", v)}
+                onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassiveSubscriptionId" })}
+              />
+              <Field label="Endpoint ACAS" htmlFor="acuantAcasEndpoint">
+                <Input id="acuantAcasEndpoint" {...register("acuantAcasEndpoint")} />
+              </Field>
+              <Field label="Endpoint Liveness (Acuant)" htmlFor="acuantLivenessEndpoint">
+                <Input id="acuantLivenessEndpoint" {...register("acuantLivenessEndpoint")} />
+              </Field>
+              <Field label="Endpoint AssureID" htmlFor="acuantAssureidEndpoint">
+                <Input id="acuantAssureidEndpoint" {...register("acuantAssureidEndpoint")} />
+              </Field>
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <InlineSwitchField label="Extraer OCR (idData)" checked={values.acuantParams.idData} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, idData: v })} />
+                <InlineSwitchField label="Recortar rostro de la ID (idPhoto)" checked={values.acuantParams.idPhoto} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, idPhoto: v })} />
+                <InlineSwitchField label="Captura manual" checked={values.acuantParams.manualCapture} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, manualCapture: v })} />
+              </div>
+              <div className="md:col-span-2">
+                <JsonBlobField
+                  label="Configuración visual de Acuant (JSON)"
+                  hint="Objeto CONFIGURATION de startAcuant: colores, leyendas, vistas. No contiene secretos."
+                  value={acuantConfigurationText}
+                  onChange={setAcuantConfigurationText}
+                />
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
