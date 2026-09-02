@@ -31,12 +31,27 @@ export const ApiEnvironmentInputSchema = z.object({
 
   authTokenEndpoint: z.string().min(1).default("/authorization-server/oauth/token"),
   createValidationEndpoint: z.string().min(1).default("/biometrics-by-steps/validations"),
-  saveValidationStepEndpoint: z.string().min(1).default("/validation/saveValidationStep/{validationId}"),
-  getValidationStepEndpoint: z.string().min(1).default("/validation/getValidationStep/{validationId}"),
+  // Estos 3 endpoints se consultan una vez por validationId (ver FadApiAdapter.withValidationId,
+  // que hace `.replace("{validationId}", ...)`): si el operador pega aquí una URL de ejemplo ya
+  // resuelta (copiada de Postman, con un ID real en vez del placeholder), TODAS las ejecuciones
+  // terminan consultando esa misma validación fija — un error real detectado en producción que
+  // FAD reporta como "la validation no existe" para cualquier ejecución. Se exige el placeholder
+  // literal para que este error de configuración se detecte al guardar, no en cada sincronización.
+  saveValidationStepEndpoint: z
+    .string()
+    .min(1)
+    .refine((v) => v.includes("{validationId}"), "Debe incluir el placeholder literal {validationId}")
+    .default("/validation/saveValidationStep/{validationId}"),
+  getValidationStepEndpoint: z
+    .string()
+    .min(1)
+    .refine((v) => v.includes("{validationId}"), "Debe incluir el placeholder literal {validationId}")
+    .default("/validation/getValidationStep/{validationId}"),
   getValidationStepHttpMethod: z.enum(HTTP_METHODS).default("GET"),
   getValidationDataEndpoint: z
     .string()
     .min(1)
+    .refine((v) => v.includes("{validationId}"), "Debe incluir el placeholder literal {validationId}")
     .default("/validation/validations/getValidationData/{validationId}"),
   launchUrlTemplate: z.string().max(500).optional().nullable(),
 
