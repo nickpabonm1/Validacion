@@ -16,6 +16,7 @@ import { Select } from "../ui/select";
 import { Button } from "../ui/button";
 import { Field, InlineSwitchField } from "../../builder/editors/Field";
 import { CredentialInput } from "./CredentialInput";
+import { WebSdkDesignEditor } from "./WebSdkDesignEditor";
 import { EmptyState, Skeleton } from "../ui/misc";
 import { useToast } from "../ui/toast";
 
@@ -329,14 +330,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
                 <InlineSwitchField label="Extraer OCR (idData)" checked={values.regulaParams.idData} onChange={(v) => setValue("regulaParams", { ...values.regulaParams, idData: v })} />
                 <InlineSwitchField label="Recortar rostro de la ID (idPhoto)" checked={values.regulaParams.idPhoto} onChange={(v) => setValue("regulaParams", { ...values.regulaParams, idPhoto: v })} />
               </div>
-              <div className="md:col-span-2">
-                <JsonBlobField
-                  label="Configuración visual de Regula (JSON)"
-                  hint="Objeto CONFIGURATION de startRegula: colores, leyendas, vistas, captureSource. No contiene secretos."
-                  value={regulaConfigurationText}
-                  onChange={setRegulaConfigurationText}
-                />
-              </div>
+              <WebSdkDesignEditor moduleLabel="Regula" configurationText={regulaConfigurationText} onConfigurationChange={setRegulaConfigurationText} />
             </>
           ) : values.documentCaptureEngine === "CAPTURE_ID" ? (
             <>
@@ -356,14 +350,11 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
                   onChange={(v) => setValue("captureIdParams", { ...values.captureIdParams, originalPhoto: v })}
                 />
               </div>
-              <div className="md:col-span-2">
-                <JsonBlobField
-                  label="Configuración visual de CaptureId (JSON)"
-                  hint="Objeto CONFIGURATION de startCaptureId: colores, leyendas, vistas, manualCapture, graphicsInfo. No contiene secretos."
-                  value={captureIdConfigurationText}
-                  onChange={setCaptureIdConfigurationText}
-                />
-              </div>
+              <WebSdkDesignEditor
+                moduleLabel="CaptureId"
+                configurationText={captureIdConfigurationText}
+                onConfigurationChange={setCaptureIdConfigurationText}
+              />
             </>
           ) : (
             <>
@@ -405,14 +396,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
                 <InlineSwitchField label="Recortar rostro de la ID (idPhoto)" checked={values.acuantParams.idPhoto} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, idPhoto: v })} />
                 <InlineSwitchField label="Captura manual" checked={values.acuantParams.manualCapture} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, manualCapture: v })} />
               </div>
-              <div className="md:col-span-2">
-                <JsonBlobField
-                  label="Configuración visual de Acuant (JSON)"
-                  hint="Objeto CONFIGURATION de startAcuant: colores, leyendas, vistas. No contiene secretos."
-                  value={acuantConfigurationText}
-                  onChange={setAcuantConfigurationText}
-                />
-              </div>
+              <WebSdkDesignEditor moduleLabel="Acuant" configurationText={acuantConfigurationText} onConfigurationChange={setAcuantConfigurationText} />
             </>
           )}
         </CardContent>
@@ -472,14 +456,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
               </div>
             </>
           )}
-          <div className="md:col-span-2">
-            <JsonBlobField
-              label="Configuración visual de Facetec (JSON)"
-              hint="Objeto CONFIGURATION de startFacetec: colores, leyendas, vistas. No contiene secretos."
-              value={facetecConfigurationText}
-              onChange={setFacetecConfigurationText}
-            />
-          </div>
+          <WebSdkDesignEditor moduleLabel="Facetec" configurationText={facetecConfigurationText} onConfigurationChange={setFacetecConfigurationText} />
         </CardContent>
       </Card>
 
