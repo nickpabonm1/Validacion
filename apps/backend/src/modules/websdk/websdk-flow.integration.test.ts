@@ -283,3 +283,82 @@ describe("websdk-flow (integración): motor de captura Regula", () => {
     ).rejects.toThrow(/licencia.*apiBasePath.*Regula/i);
   });
 });
+
+async function setupCaptureIdEnvironment() {
+  await prisma.validationExecution.deleteMany();
+  await prisma.webSdkConfig.deleteMany();
+  await prisma.apiEnvironment.deleteMany();
+
+  const environment = await prisma.apiEnvironment.create({
+    data: {
+      name: "Env de prueba Web SDK (CaptureId)",
+      environmentType: "UATHA",
+      baseUrl: "https://fad.test.invalid",
+      integrationModel: "WEB_SDK",
+      basicAuthUsernameEnc: credentialEncryptionService.encrypt("basic-user"),
+      basicAuthPasswordEnc: credentialEncryptionService.encrypt("basic-pass"),
+      apiUsernameEnc: credentialEncryptionService.encrypt("api-user"),
+      apiPasswordEnc: credentialEncryptionService.encrypt("api-pass"),
+      passwordIsPreHashed: true,
+    },
+  });
+
+  await prisma.webSdkConfig.create({
+    data: {
+      environmentId: environment.id,
+      sdkBaseUrl: "https://sdk.test.invalid",
+      documentCaptureEngine: "CAPTURE_ID",
+      captureIdParams: JSON.stringify({ idPhoto: true, originalPhoto: true }),
+      captureIdConfiguration: JSON.stringify({ views: { instructions: true }, output: { idData: true } }),
+      checkMaxAttempts: 2,
+      checkAcceptedRisk: "LOW",
+      faceMatchMinConfidence: 85,
+    },
+  });
+
+  clearCachedToken(environment.id);
+  return environment.id;
+}
+
+describe("websdk-flow (integración): motor de captura CaptureId", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it("arma sdkInit.captureId (sin credentials) inyectando captureIdParams en configuration.output", async () => {
+    const environmentId = await setupCaptureIdEnvironment();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(tokenResponse()));
+
+    const { sdkInit } = await startWebSdkExecution(
+      { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+      null,
+    );
+
+    expect(sdkInit.documentCaptureEngine).toBe("CAPTURE_ID");
+    expect(sdkInit.acuant).toBeUndefined();
+    expect(sdkInit.regula).toBeUndefined();
+    expect(sdkInit.captureId).toMatchObject({
+      configuration: {
+        views: { instructions: true },
+        // `output.idData` (de la configuración base) se preserva; idPhoto/originalPhoto vienen
+        // de captureIdParams y no se pierden aunque no estuvieran ya en `output`.
+        output: { idData: true, idPhoto: true, originalPhoto: true },
+      },
+    });
+  });
+
+  it("no exige credenciales propias para iniciar una sesión CaptureId (usa el sdkToken/access_token)", async () => {
+    const environmentId = await setupCaptureIdEnvironment();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(tokenResponse()));
+
+    const { sdkInit } = await startWebSdkExecution(
+      { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+      null,
+    );
+    expect(sdkInit.sdkToken).toBe("tok-abc"); // fallback al access_token: no se configuró sdkTokenEnc
+  });
+});

@@ -32,6 +32,9 @@ export function toWebSdkConfigDto(config: WebSdkConfigRecord): WebSdkConfigDto {
     regulaParams: fromJsonField(config.regulaParams, { idData: true, idPhoto: true }),
     regulaConfiguration: fromJsonField(config.regulaConfiguration, {}),
 
+    captureIdParams: fromJsonField(config.captureIdParams, { idPhoto: true, originalPhoto: false }),
+    captureIdConfiguration: fromJsonField(config.captureIdConfiguration, {}),
+
     biometricEngine: config.biometricEngine as BiometricEngine,
     facetecUseMiddleware: config.facetecUseMiddleware,
     facetecMiddleware: fromJsonField(config.facetecMiddleware, {}),
@@ -102,6 +105,8 @@ export async function upsertWebSdkConfig(environmentId: string, input: WebSdkCon
     regulaCaptureType: input.regulaCaptureType,
     regulaParams: toJsonField(input.regulaParams),
     regulaConfiguration: toJsonField(input.regulaConfiguration),
+    captureIdParams: toJsonField(input.captureIdParams),
+    captureIdConfiguration: toJsonField(input.captureIdConfiguration),
     biometricEngine: input.biometricEngine,
     facetecUseMiddleware: input.facetecUseMiddleware,
     facetecMiddleware: toJsonField(input.facetecMiddleware),

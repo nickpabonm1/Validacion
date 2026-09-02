@@ -7,13 +7,15 @@ orquestado por esta consola en vez de ser un flujo alojado íntegramente por FAD
 
 Fuentes analizadas para esta implementación (nunca copiadas literalmente ni usadas como
 credenciales): `FAD SDK Web Regula` (docx), `FAD SDK Web Facetec` (PDF), `FAD SDK Web Acuant`
-(PDF), `Integration_saveValidationData_service` (PDF), y un proyecto Angular de referencia
-(`fad-demo-v1`) que el propio autor describe como "verificado contra UATHA". Del proyecto de
-referencia se tomó únicamente la **estructura** (endpoints, algoritmo de cifrado, formato del
-.TAR): ningún secreto, token ni credencial de ese proyecto fue copiado a este repositorio — el
-`environment.ts` de esa referencia contenía lo que parecían ser credenciales reales de un
-ambiente UATHA (client secret OAuth, credenciales Acuant, un token de SDK); se ignoraron por
-completo.
+(PDF), `FAD SDK Web CaptureId` (PDF), `Integration_saveValidationData_service` (PDF), y dos
+proyectos Angular de referencia — `fad-demo-v1` (Acuant/Regula/Facetec) y `fad-demo-v2`
+(agrega CaptureId, ahí documentado como proveedor "Sovos") — que el propio autor describe como
+"verificados contra UATHA". De ambos proyectos de referencia se tomó únicamente la **estructura**
+(endpoints, algoritmo de cifrado, formato del .TAR, forma de las respuestas de cada SDK): ningún
+secreto, token ni credencial de esos proyectos fue copiado a este repositorio — el
+`environment.ts`/`environment.prod.ts` de ambas referencias contenían lo que parecían ser
+credenciales reales de un ambiente UATHA (client secret OAuth, credenciales Acuant, licencia
+Regula, un token de SDK); se ignoraron por completo.
 
 ## Por qué el diseño difiere de la referencia (más seguro, mismo resultado)
 
@@ -143,6 +145,40 @@ la prosa del docx, porque es lo que efectivamente se ejecuta en el navegador:
   método sí menciona un "desktop process" cuyo `captureType` "will be ignored", lo que sugiere que
   ese modo se activa vía `configuration.captureSource`/`capture.desktop` (documentado en el docx)
   en vez de por un valor de `captureType` propio.
+
+## CaptureId (tercer motor de captura documental)
+
+Implementado según `FAD SDK Web CaptureId` (PDF, 26 páginas) y contrastado contra un segundo
+proyecto Angular de referencia (`fad-demo-v2`, `FadSdkService.startCaptureId`/`mapCaptureId`) —
+igual que con `fad-demo-v1`, solo se tomó la **estructura**: el `environment.ts` de `fad-demo-v2`
+también contenía lo que parecían ser credenciales reales de un ambiente UATHA (client secret
+OAuth, credenciales Acuant, licencia Regula, token del SDK) y se ignoraron por completo, nunca se
+copiaron a este repositorio.
+
+Un ambiente Web SDK elige `documentCaptureEngine: ACUANT | REGULA | CAPTURE_ID` (Ambientes →
+pestaña «Web SDK» → «Motor de captura»); es mutuamente excluyente con Acuant/Regula, igual que
+documenta el SDK. Diferencia clave frente a los otros dos motores: `startCaptureId(configuration)`
+recibe **un único parámetro** — no hay `credentials` propias, se autentica con el mismo `sdkToken`
+(o el `access_token` de respaldo) que ya usan Acuant/Facetec. Por eso `WebSdkConfig` no tiene
+columnas cifradas para este motor: solo `captureIdParams` (`{ idPhoto, originalPhoto }`, se
+inyectan en `configuration.output` al construir el `sdkInit`, mismo patrón que
+`FadSdkService.startCaptureId` de la referencia) y `captureIdConfiguration` (JSON libre, sin
+secretos).
+
+`runCaptureIdCapture` en `apps/frontend/src/lib/fad-sdk-client.ts` normaliza el resultado a la
+misma forma (`WebSdkAcuantResultInput`) que Acuant/Regula, así que el resto del flujo (NAAT-CHECK,
+compareFacesPassive, saveValidationData, el reporte) funciona igual sin importar el motor:
+- La respuesta trae las imágenes bajo `data.resources.{croppedId,originalPhoto,portrait}` (no
+  documentado en el PDF con este nivel de detalle) en vez de `data.id.front/back` (Acuant/Regula);
+  se extraen con un `pickImage` tolerante a varias formas (string directo, `{data}`, `{image}`,
+  etc.), puerto del mismo helper de `fad-demo-v2`.
+- El OCR (`data.ocr.fields` + `data.ocr.decodeInfo.data.biograficos`, este último poblado solo
+  cuando se decodifica el QR de una INE) se remapea a los mismos nombres camelCase que ya usa
+  Acuant (`givenName`, `fathersSurname`, `curp`, etc.) para que `buildMetadataJson` (el `data.json`
+  del `.TAR`) funcione sin cambios sin importar el motor.
+- `qualityAssessment`/`traceability`, que el PDF sí documenta en la respuesta, no se normalizan a
+  un campo propio (ningún proveedor los usa aguas abajo en este flujo) — quedan disponibles en
+  `raw`, sin fabricarlos ni descartarlos.
 
 ## Limitaciones conocidas / trabajo futuro
 

@@ -18,6 +18,20 @@ describe("parseWebSdkConfigImport", () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it("aplica los campos de CaptureId (sin credenciales, a diferencia de Acuant/Regula)", () => {
+    const result = parseWebSdkConfigImport({
+      documentCaptureEngine: "CAPTURE_ID",
+      captureIdParams: { idPhoto: true, originalPhoto: false },
+      captureIdConfiguration: { views: { instructions: true } },
+    });
+    expect(result.matched).toEqual(
+      expect.arrayContaining(["documentCaptureEngine", "captureIdParams", "captureIdConfiguration"]),
+    );
+    expect(result.values.documentCaptureEngine).toBe("CAPTURE_ID");
+    expect(result.values.captureIdParams).toEqual({ idPhoto: true, originalPhoto: false });
+    expect(result.warnings).toEqual([]);
+  });
+
   it("no toca campos ausentes del archivo (no aplica valores por defecto sobre lo que ya existe)", () => {
     const result = parseWebSdkConfigImport({ sdkBaseUrl: "https://x.test" });
     expect(Object.keys(result.values)).toEqual(["sdkBaseUrl"]);

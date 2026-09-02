@@ -19,8 +19,10 @@ export type ConfigurableHttpMethod = (typeof HTTP_METHODS)[number];
 export const INTEGRATION_MODELS = ["API_BY_STEPS", "WEB_SDK"] as const;
 export type IntegrationModel = (typeof INTEGRATION_MODELS)[number];
 
-/** Motor de captura documental para el modelo Web SDK — ver docs/websdk-integration.md. */
-export const DOCUMENT_CAPTURE_ENGINES = ["ACUANT", "REGULA"] as const;
+/** Motor de captura documental para el modelo Web SDK — ver docs/websdk-integration.md.
+ * CAPTURE_ID es `startCaptureId()` (ver "FAD SDK Web CaptureId"): a diferencia de Acuant/Regula
+ * no recibe credenciales por parámetro — se autentica con el `sdkToken` ya existente. */
+export const DOCUMENT_CAPTURE_ENGINES = ["ACUANT", "REGULA", "CAPTURE_ID"] as const;
 export type DocumentCaptureEngine = (typeof DOCUMENT_CAPTURE_ENGINES)[number];
 
 /** CaptureType de `startRegula()`: DOCUMENT_READER (automático) | CAMERA_SNAPSHOT (manual).

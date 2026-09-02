@@ -7,7 +7,7 @@ import type { WebSdkAcuantResultInput, WebSdkFacetecResultInput } from "@fad-con
 import { useEnvironments, useWebSdkConfig } from "../features/environments/useEnvironments";
 import { useStartWebSdk, useSubmitAcuantResult, useSubmitFacetecResult, useCompleteWebSdk } from "../features/websdk/useWebSdk";
 import { useCreateShareLink, useSendShareLink } from "../features/websdk/useWebSdkShare";
-import { runAcuantCapture, runRegulaCapture, runFacetecCapture, describeSdkError } from "../lib/fad-sdk-client";
+import { runAcuantCapture, runRegulaCapture, runCaptureIdCapture, runFacetecCapture, describeSdkError } from "../lib/fad-sdk-client";
 import { PageHeader, EmptyState, Spinner } from "../components/ui/misc";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -102,7 +102,12 @@ export function WebSdkCapturePage() {
     setError(null);
     setBusy(true);
     try {
-      const result = sdkInit.documentCaptureEngine === "REGULA" ? await runRegulaCapture(sdkInit) : await runAcuantCapture(sdkInit);
+      const result =
+        sdkInit.documentCaptureEngine === "REGULA"
+          ? await runRegulaCapture(sdkInit)
+          : sdkInit.documentCaptureEngine === "CAPTURE_ID"
+            ? await runCaptureIdCapture(sdkInit)
+            : await runAcuantCapture(sdkInit);
       setAcuantResult(result);
       const check = await submitAcuant.mutateAsync({ executionId: sdkInit.executionId, input: result });
       setCheckStatus({ attemptsUsed: check.attemptsUsed, attemptsMax: check.attemptsMax, risk: check.risk });

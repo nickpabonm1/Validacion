@@ -88,13 +88,15 @@ async function buildSdkInit(
         "Configura las credenciales de Acuant en Ambientes > Web SDK antes de iniciar una captura.",
       );
     }
-  } else {
+  } else if (documentCaptureEngine === "REGULA") {
     if (!creds.regulaLicense || !config.regulaApiBasePath) {
       throw AppError.badRequest(
         "Configura la licencia y el apiBasePath de Regula en Ambientes > Web SDK antes de iniciar una captura.",
       );
     }
   }
+  // CAPTURE_ID no recibe credenciales por parámetro (ver "FAD SDK Web CaptureId" §Parameters):
+  // se autentica con `sdkToken`, que ya tiene fallback al access_token más abajo.
   if (!config.facetecUseMiddleware) {
     if (
       !creds.facetecDeviceKeyIdentifier ||
@@ -138,6 +140,20 @@ async function buildSdkInit(
             ...fromJsonField(config.regulaParams, { idData: true, idPhoto: true }),
             captureType: config.regulaCaptureType as RegulaCaptureType,
             configuration: fromJsonField(config.regulaConfiguration, {}),
+          }
+        : undefined,
+    captureId:
+      documentCaptureEngine === "CAPTURE_ID"
+        ? {
+            // Mismo patrón que fad-demo-v2 FadSdkService.startCaptureId: los flags de
+            // `captureIdParams` se inyectan en `configuration.output` sin perder los valores de
+            // output que pudiera traer ya la configuración base.
+            configuration: (() => {
+              const captureIdConfiguration = fromJsonField<Record<string, unknown>>(config.captureIdConfiguration, {});
+              const captureIdParams = fromJsonField(config.captureIdParams, { idPhoto: true, originalPhoto: false });
+              const output = (captureIdConfiguration.output as Record<string, unknown> | undefined) ?? {};
+              return { ...captureIdConfiguration, output: { ...output, ...captureIdParams } };
+            })(),
           }
         : undefined,
     biometricEngine: config.biometricEngine as BiometricEngine,

@@ -10,7 +10,7 @@ import {
   usePublicShareInfo,
   usePublicShareStart,
 } from "../features/websdk/useWebSdkShare";
-import { runAcuantCapture, runRegulaCapture, runFacetecCapture, describeSdkError } from "../lib/fad-sdk-client";
+import { runAcuantCapture, runRegulaCapture, runCaptureIdCapture, runFacetecCapture, describeSdkError } from "../lib/fad-sdk-client";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { FullPageSpinner } from "../components/layout/FullPageSpinner";
@@ -74,7 +74,12 @@ export function WebSdkPublicCapturePage() {
     setError(null);
     setBusy(true);
     try {
-      const result = sdkInit.documentCaptureEngine === "REGULA" ? await runRegulaCapture(sdkInit) : await runAcuantCapture(sdkInit);
+      const result =
+        sdkInit.documentCaptureEngine === "REGULA"
+          ? await runRegulaCapture(sdkInit)
+          : sdkInit.documentCaptureEngine === "CAPTURE_ID"
+            ? await runCaptureIdCapture(sdkInit)
+            : await runAcuantCapture(sdkInit);
       const check = await submitAcuant.mutateAsync({ token, input: result });
       setCheckStatus({ attemptsUsed: check.attemptsUsed, attemptsMax: check.attemptsMax });
       if (check.accepted) {

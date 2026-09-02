@@ -1,0 +1,131 @@
+{
+  "sdkBaseUrl": "https://uathaapiframe.firmaautografa.com",
+  "sdkRequestId": "mi-app-web",
+  "sdkToken": "CAMBIAR_TOKEN_DEL_SDK",
+
+  "documentCaptureEngine": "CAPTURE_ID",
+  "captureIdParams": {
+    "idPhoto": true,
+    "originalPhoto": true
+  },
+  "captureIdConfiguration": {
+    "manualCapture": {
+      "desktop": { "force": true }
+    },
+    "graphicsInfo": {
+      "decode": true
+    },
+    "views": {
+      "instructions": true,
+      "preview": true
+    },
+    "imageResult": { "quality": 1 },
+    "customization": {
+      "fadCustomization": {
+        "colors": { "primary": "#A70635" },
+        "fonts": {
+          "subtitle": { "fontSize": "17px", "fontFamily": "system-ui" },
+          "content": { "fontSize": "15px", "fontFamily": "system-ui" },
+          "button": { "fontSize": "17px", "fontFamily": "system-ui" }
+        }
+      },
+      "moduleCustomization": {
+        "legendsInstructions": {
+          "title": "Identificación",
+          "subtitle": "Captura tu identificación",
+          "buttonNext": "Continuar",
+          "instruction": ""
+        },
+        "legendsPreview": {
+          "title": "Identificación",
+          "confirmation": "¿Los datos de tu identificación son legibles?",
+          "buttonNext": "Sí, continuar",
+          "buttonRetry": "Volver a capturar"
+        },
+        "legends": {
+          "common": {
+            "loader": {
+              "initializing": "Inicializando…",
+              "processing": "Procesando…"
+            }
+          },
+          "automaticCapture": {
+            "detection": {
+              "noDocument": "Coloque el documento en el recuadro",
+              "goodDocument": "No se mueva",
+              "bigDocument": "Aléjese",
+              "smallDocument": "Acérquese",
+              "invalidFront": "Coloque el frente",
+              "invalidBack": "Coloque el reverso",
+              "blurryDocument": "Documento poco legible"
+            },
+            "subtitle": { "front": "Frente", "back": "Reverso" },
+            "instruction": {
+              "front": "Captura de identificación",
+              "back": "Captura de identificación"
+            }
+          },
+          "manualCapture": {
+            "tooltip": {
+              "tryAgain": "Captura nuevamente",
+              "invalidFront": "Captura el frente",
+              "invalidBack": "Captura el reverso",
+              "imageLoadFailed": "Error al cargar la imagen",
+              "imageTypeNotSupported": "El tipo de imagen no es soportado",
+              "userLoadedTooManyImages": "Seleccione solo una imagen"
+            },
+            "mobile": {
+              "front": { "instruction": "Sube el frente de tu identificación", "buttonNext": "Continuar" },
+              "back": { "instruction": "Sube el reverso de tu identificación", "buttonNext": "Continuar" }
+            },
+            "desktop": {
+              "front": { "instruction": "Sube el frente de tu identificación", "title": "Identificación", "buttonNext": "Continuar" },
+              "back": { "title": "Identificación", "instruction": "Sube el reverso de tu identificación", "buttonNext": "Continuar" }
+            }
+          }
+        },
+        "style": {
+          "common": {
+            "loader": {
+              "animationColor": "#FFFFFF",
+              "backgroundColor": "#000000",
+              "labelColor": "#FFFFFF"
+            }
+          },
+          "outerBackgroundColor": "#2b2b2b66",
+          "idDetectedOuterBackgroundColor": "#0a0a0ab3",
+          "detectionBorder": {
+            "initial": { "color": "#FFFFFF", "style": "solid", "width": "4px" },
+            "warning": { "color": "#FFDC45", "style": "solid", "width": "4px" },
+            "detected": { "color": "#009895", "style": "solid", "width": "4px" }
+          },
+          "instruction": {
+            "initial": { "backgroundColor": "#000000b5", "color": "#FFFFFF" },
+            "warning": { "backgroundColor": "#FFDC45B5", "color": "#FFFFFF" },
+            "detected": { "backgroundColor": "#009895", "color": "#FFFFFF" }
+          }
+        }
+      }
+    }
+  },
+
+  "biometricEngine": "FACETEC",
+  "facetecUseMiddleware": true,
+  "facetecMiddleware": {
+    "module": "facetec",
+    "provider": "firmaautografa",
+    "platform": "web",
+    "app": "MI-APP-WEB",
+    "version": "1.0.0"
+  },
+  "facetecConfiguration": {},
+
+  "checkEndpoint": "/naat-check-api/idholo/multiple",
+  "compareFacesEndpoint": "/biometrics/compareFacesPassive",
+  "getValidationKeysEndpoint": "/validation/validations/getValidationKeys",
+  "saveValidationDataEndpoint": "/validation/validations/saveValidationData",
+
+  "checkMaxAttempts": 3,
+  "checkAcceptedRisk": "LOW",
+  "faceMatchMinConfidence": 85
+}

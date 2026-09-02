@@ -74,6 +74,13 @@ export const WebSdkConfigInputSchema = z.object({
   /** Objeto CONFIGURATION de startRegula (colores/leyendas/vistas) — no contiene secretos. */
   regulaConfiguration: z.record(z.unknown()).default({}),
 
+  /** `startCaptureId(configuration)` no recibe credenciales por parámetro (se autentica con
+   * `sdkToken`, ver "FAD SDK Web CaptureId" §Parameters). Estos flags se inyectan en
+   * `configuration.output` al construir el sdkInit (mismo patrón que fad-demo-v2). */
+  captureIdParams: z.object({ idPhoto: z.boolean(), originalPhoto: z.boolean() }).default({ idPhoto: true, originalPhoto: false }),
+  /** Objeto CONFIGURATION de startCaptureId (colores/leyendas/vistas) — no contiene secretos. */
+  captureIdConfiguration: z.record(z.unknown()).default({}),
+
   biometricEngine: z.enum(BIOMETRIC_ENGINES).default("FACETEC"),
   facetecUseMiddleware: z.boolean().default(true),
   facetecMiddleware: z.record(z.unknown()).default({}),

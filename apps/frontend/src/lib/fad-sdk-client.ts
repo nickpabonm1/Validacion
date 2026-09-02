@@ -187,6 +187,99 @@ export async function runRegulaCapture(init: WebSdkSessionInitDto): Promise<WebS
   }
 }
 
+/** Extrae el base64 (string) de una imagen del resultado de CaptureId, tolerando varias formas
+ * que trae la respuesta real (string directo, { data }, { image }, { image: { data } },
+ * { base64 }, { uri }, { content }, { value }) — mismo tolerante `pickImage` de fad-demo-v2
+ * `FadSdkService.mapCaptureId`, necesario porque el PDF "FAD SDK Web CaptureId" no documenta la
+ * forma exacta de `data.resources.*`. */
+export function pickCaptureIdImage(side: unknown, depth = 0): string | undefined {
+  if (side == null) return undefined;
+  if (typeof side === "string") return side;
+  if (depth >= 4 || typeof side !== "object") return undefined;
+  const record = side as Record<string, unknown>;
+  const candidates = [record.data, record.image, record.base64, record.uri, record.content, record.value, record.file];
+  for (const candidate of candidates) {
+    const found = pickCaptureIdImage(candidate, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** Normaliza `data.ocr` de CaptureId (`{ fields: [{key,value}], decodeInfo: { data: { foto,
+ * biograficos } } }`) a los mismos nombres camelCase estilo Acuant que ya consume el resto del
+ * flujo (`buildMetadataJson`, `buildWebSdkNormalizedDetail`) — puerto de
+ * fad-demo-v2 `FadSdkService.buildCaptureIdOcr`. Se conservan `fields`/`biograficos` crudos para
+ * trazabilidad, nunca se descartan. */
+export function buildCaptureIdOcr(data: Record<string, unknown>): Record<string, unknown> {
+  const ocrRaw = (data.ocr ?? {}) as Record<string, unknown>;
+  const fields = Array.isArray(ocrRaw.fields) ? (ocrRaw.fields as { key?: unknown; value?: unknown }[]) : [];
+  const byKey: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (f?.key != null) byKey[String(f.key)] = f.value;
+  }
+  const decodeInfo = (ocrRaw.decodeInfo ?? {}) as Record<string, unknown>;
+  const decodeData = (decodeInfo.data ?? {}) as Record<string, unknown>;
+  const bio = (decodeData.biograficos ?? {}) as Record<string, unknown>;
+
+  return {
+    fullName: byKey["Full Name"],
+    givenName: bio.nombre ?? byKey["Given Names"],
+    firstName: bio.nombre ?? byKey["Given Names"],
+    fathersSurname: bio.apellido1 ?? byKey["Surname"],
+    mothersSurname: bio.apellido2 ?? byKey["Second Surname"],
+    curp: bio.curp ?? byKey["Personal Number"],
+    personalNumber: bio.curp ?? byKey["Personal Number"],
+    documentNumber: byKey["Document Number"] ?? bio.cic,
+    expirationDate: byKey["Date of Expiry"],
+    registrationYear: byKey["Year of Registration"],
+    issuingStateName: byKey["Address State"],
+    fields,
+    biograficos: bio,
+  };
+}
+
+/** Ejecuta la captura de identificación con CaptureId (iframe) — "FAD SDK Web CaptureId"
+ * §Parameters: `startCaptureId(configuration)` recibe un único parámetro (sin credenciales, a
+ * diferencia de Acuant/Regula: se autentica con el `sdkToken` ya usado para construir el SDK). La
+ * respuesta se normaliza a la misma forma `WebSdkAcuantResultInput` (puerto de fad-demo-v2
+ * `FadSdkService.mapCaptureId`), de modo que el resto del flujo (NAAT-CHECK, compareFacesPassive,
+ * saveValidationData) funciona igual sin importar el motor de captura. */
+export async function runCaptureIdCapture(init: WebSdkSessionInitDto): Promise<WebSdkAcuantResultInput> {
+  const client = initSdk(init);
+  try {
+    const captureId = init.captureId;
+    if (!captureId) throw new Error("Falta la configuración de CaptureId en la sesión del SDK.");
+    const response = await client.startCaptureId(captureId.configuration);
+    const data = (response?.data ?? {}) as Record<string, unknown>;
+    const resources = (data.resources ?? {}) as Record<string, unknown>;
+    const croppedId = (resources.croppedId ?? {}) as Record<string, unknown>;
+    const originalPhotoSide = (resources.originalPhoto ?? {}) as Record<string, unknown>;
+
+    const dataImage = (data.image ?? {}) as Record<string, unknown>;
+    const dataOriginalPhoto = (data.originalPhoto ?? {}) as Record<string, unknown>;
+    const ocrDecodeData = (((data.ocr as Record<string, unknown> | undefined)?.decodeInfo as Record<string, unknown> | undefined)?.data ??
+      {}) as Record<string, unknown>;
+
+    const frontImage = pickCaptureIdImage(croppedId.front) ?? pickCaptureIdImage(dataImage.front);
+    const backImage = pickCaptureIdImage(croppedId.back) ?? pickCaptureIdImage(dataImage.back);
+    // Recorte del rostro: `resources.portrait`. Como respaldo, la foto del decodificado del QR
+    // (`ocr.decodeInfo.data.foto`), o `data.idPhoto` si el proveedor lo devuelve directo.
+    const idPhoto = pickCaptureIdImage(resources.portrait) ?? pickCaptureIdImage(ocrDecodeData.foto) ?? pickCaptureIdImage(data.idPhoto);
+    const originalPhoto = pickCaptureIdImage(originalPhotoSide.front) ?? pickCaptureIdImage(dataOriginalPhoto.front);
+
+    return {
+      frontImage: toDataUri(frontImage),
+      backImage: toDataUri(backImage),
+      idPhoto: toDataUri(idPhoto),
+      originalPhoto: toDataUri(originalPhoto),
+      ocr: buildCaptureIdOcr(data),
+      classification: typeof data.classification === "object" && data.classification !== null ? (data.classification as Record<string, unknown>) : undefined,
+    };
+  } finally {
+    endSdk();
+  }
+}
+
 /** Ejecuta la prueba de vida con Facetec (iframe, vía middleware o credenciales directas). */
 export async function runFacetecCapture(init: WebSdkSessionInitDto): Promise<WebSdkFacetecResultInput> {
   const client = initSdk(init);

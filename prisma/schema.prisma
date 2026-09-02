@@ -110,8 +110,7 @@ model WebSdkConfig {
   sdkRequestId String?
   sdkTokenEnc  String? // opcional: si falta, se usa el access_token OAuth como fallback
 
-  /// DocumentCaptureEngine: ACUANT (único soportado por ahora; Regula queda documentado para el
-  /// futuro, ver docs/websdk-integration.md).
+  /// DocumentCaptureEngine: ACUANT | REGULA | CAPTURE_ID — ver docs/websdk-integration.md.
   documentCaptureEngine          String  @default("ACUANT")
   acuantPassiveUsernameEnc       String?
   acuantPassivePasswordEnc       String?
@@ -134,6 +133,12 @@ model WebSdkConfig {
   regulaParams        String  @default("{\"idData\":true,\"idPhoto\":true}")
   /// JSON serializado: objeto CONFIGURATION de startRegula (no contiene secretos)
   regulaConfiguration String  @default("{}")
+
+  /// startCaptureId(configuration) no recibe credenciales por parámetro: se autentica con
+  /// sdkTokenEnc (arriba). JSON serializado: { idPhoto, originalPhoto }
+  captureIdParams        String @default("{\"idPhoto\":true,\"originalPhoto\":false}")
+  /// JSON serializado: objeto CONFIGURATION de startCaptureId (no contiene secretos)
+  captureIdConfiguration String @default("{}")
 
   /// BiometricEngine: FACETEC (único soportado)
   biometricEngine                       String  @default("FACETEC")

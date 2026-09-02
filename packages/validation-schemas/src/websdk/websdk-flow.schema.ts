@@ -57,6 +57,9 @@ export const WebSdkAcuantResultInputSchema = z.object({
   regulaData: z.array(z.record(z.unknown())).optional(),
   /** `data.regulaResponse`: respuesta cruda del proveedor Regula. */
   regulaResponse: z.record(z.unknown()).optional(),
+  // CAPTURE_ID (`startCaptureId()`) también reutiliza este mismo schema sin campos propios: su
+  // respuesta se normaliza a frontImage/backImage/idPhoto/originalPhoto/ocr (mismo patrón que
+  // fad-demo-v2 FadSdkService.mapCaptureId) — lo demás queda en `raw`, sin fabricarlo aquí.
 });
 export type WebSdkAcuantResultInput = z.infer<typeof WebSdkAcuantResultInputSchema>;
 

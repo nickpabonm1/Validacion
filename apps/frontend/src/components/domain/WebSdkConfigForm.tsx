@@ -32,6 +32,8 @@ const BLANK: WebSdkConfigInput = {
   regulaCaptureType: "CAMERA_SNAPSHOT",
   regulaParams: { idData: true, idPhoto: true },
   regulaConfiguration: {},
+  captureIdParams: { idPhoto: true, originalPhoto: false },
+  captureIdConfiguration: {},
   biometricEngine: "FACETEC",
   facetecUseMiddleware: true,
   facetecMiddleware: {},
@@ -60,6 +62,8 @@ function toFormValues(config: WebSdkConfigDto): WebSdkConfigInput {
     regulaCaptureType: config.regulaCaptureType,
     regulaParams: config.regulaParams,
     regulaConfiguration: config.regulaConfiguration,
+    captureIdParams: config.captureIdParams,
+    captureIdConfiguration: config.captureIdConfiguration,
     biometricEngine: config.biometricEngine,
     facetecUseMiddleware: config.facetecUseMiddleware,
     facetecMiddleware: config.facetecMiddleware,
@@ -111,6 +115,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
 
   const [acuantConfigurationText, setAcuantConfigurationText] = useState("{}");
   const [regulaConfigurationText, setRegulaConfigurationText] = useState("{}");
+  const [captureIdConfigurationText, setCaptureIdConfigurationText] = useState("{}");
   const [facetecMiddlewareText, setFacetecMiddlewareText] = useState("{}");
   const [facetecConfigurationText, setFacetecConfigurationText] = useState("{}");
   const [productionKeyTextJson, setProductionKeyTextJson] = useState("");
@@ -121,6 +126,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
     reset(values);
     setAcuantConfigurationText(JSON.stringify(values.acuantConfiguration, null, 2));
     setRegulaConfigurationText(JSON.stringify(values.regulaConfiguration, null, 2));
+    setCaptureIdConfigurationText(JSON.stringify(values.captureIdConfiguration, null, 2));
     setFacetecMiddlewareText(JSON.stringify(values.facetecMiddleware, null, 2));
     setFacetecConfigurationText(JSON.stringify(values.facetecConfiguration, null, 2));
     setProductionKeyTextJson("");
@@ -150,6 +156,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
       for (const [key, value] of Object.entries(result.values) as [keyof WebSdkConfigInput, never][]) {
         if (key === "acuantConfiguration") setAcuantConfigurationText(JSON.stringify(value, null, 2));
         else if (key === "regulaConfiguration") setRegulaConfigurationText(JSON.stringify(value, null, 2));
+        else if (key === "captureIdConfiguration") setCaptureIdConfigurationText(JSON.stringify(value, null, 2));
         else if (key === "facetecMiddleware") setFacetecMiddlewareText(JSON.stringify(value, null, 2));
         else if (key === "facetecConfiguration") setFacetecConfigurationText(JSON.stringify(value, null, 2));
         else if (key === "facetecProductionKeyText") setProductionKeyTextJson(JSON.stringify(value));
@@ -187,9 +194,17 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
   async function onSubmit(formValues: WebSdkConfigInput) {
     const acuantConfiguration = parseJsonBlob("Configuración de Acuant", acuantConfigurationText);
     const regulaConfiguration = parseJsonBlob("Configuración de Regula", regulaConfigurationText);
+    const captureIdConfiguration = parseJsonBlob("Configuración de CaptureId", captureIdConfigurationText);
     const facetecMiddleware = parseJsonBlob("Middleware de Facetec", facetecMiddlewareText);
     const facetecConfiguration = parseJsonBlob("Configuración de Facetec", facetecConfigurationText);
-    if (acuantConfiguration === null || regulaConfiguration === null || facetecMiddleware === null || facetecConfiguration === null) return;
+    if (
+      acuantConfiguration === null ||
+      regulaConfiguration === null ||
+      captureIdConfiguration === null ||
+      facetecMiddleware === null ||
+      facetecConfiguration === null
+    )
+      return;
 
     let facetecProductionKeyText: WebSdkConfigInput["facetecProductionKeyText"];
     if (productionKeyTextJson.trim()) {
@@ -209,6 +224,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
           ...formValues,
           acuantConfiguration,
           regulaConfiguration,
+          captureIdConfiguration,
           facetecMiddleware,
           facetecConfiguration,
           facetecProductionKeyText,
@@ -226,8 +242,9 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">
           Sube un archivo JSON con credenciales/endpoints Web SDK en vez de escribirlos a mano — ver{" "}
-          <code className="rounded bg-muted px-1 py-0.5">docs/examples/websdk-config.example.json</code> (Acuant) o{" "}
-          <code className="rounded bg-muted px-1 py-0.5">websdk-config-regula.example.json</code> (Regula) en el
+          <code className="rounded bg-muted px-1 py-0.5">docs/examples/websdk-config.example.json</code> (Acuant),{" "}
+          <code className="rounded bg-muted px-1 py-0.5">websdk-config-regula.example.json</code> (Regula) o{" "}
+          <code className="rounded bg-muted px-1 py-0.5">websdk-config-captureid.example.json</code> (CaptureId) en el
           repositorio.
         </p>
         <input
@@ -272,13 +289,18 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
 
       <Card>
         <CardHeader>
-          <CardTitle>Captura de documento ({values.documentCaptureEngine === "REGULA" ? "Regula" : "Acuant"})</CardTitle>
+          <CardTitle>
+            Captura de documento (
+            {values.documentCaptureEngine === "REGULA" ? "Regula" : values.documentCaptureEngine === "CAPTURE_ID" ? "CaptureId" : "Acuant"}
+            )
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <Field label="Motor de captura" htmlFor="documentCaptureEngine">
             <Select id="documentCaptureEngine" {...register("documentCaptureEngine")}>
               <option value="ACUANT">Acuant</option>
               <option value="REGULA">Regula</option>
+              <option value="CAPTURE_ID">CaptureId</option>
             </Select>
           </Field>
           <div />
@@ -313,6 +335,33 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
                   hint="Objeto CONFIGURATION de startRegula: colores, leyendas, vistas, captureSource. No contiene secretos."
                   value={regulaConfigurationText}
                   onChange={setRegulaConfigurationText}
+                />
+              </div>
+            </>
+          ) : values.documentCaptureEngine === "CAPTURE_ID" ? (
+            <>
+              <p className="text-xs text-muted-foreground md:col-span-2">
+                CaptureId (<code className="rounded bg-muted px-1 py-0.5">startCaptureId</code>) no recibe credenciales por
+                parámetro: se autentica con el «Token del SDK» de la tarjeta de arriba.
+              </p>
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <InlineSwitchField
+                  label="Recortar rostro de la ID (idPhoto)"
+                  checked={values.captureIdParams.idPhoto}
+                  onChange={(v) => setValue("captureIdParams", { ...values.captureIdParams, idPhoto: v })}
+                />
+                <InlineSwitchField
+                  label="Imagen original sin recortar (originalPhoto)"
+                  checked={values.captureIdParams.originalPhoto}
+                  onChange={(v) => setValue("captureIdParams", { ...values.captureIdParams, originalPhoto: v })}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <JsonBlobField
+                  label="Configuración visual de CaptureId (JSON)"
+                  hint="Objeto CONFIGURATION de startCaptureId: colores, leyendas, vistas, manualCapture, graphicsInfo. No contiene secretos."
+                  value={captureIdConfigurationText}
+                  onChange={setCaptureIdConfigurationText}
                 />
               </div>
             </>

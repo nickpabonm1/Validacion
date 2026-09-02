@@ -89,6 +89,9 @@ export interface WebSdkConfigDto {
   regulaParams: { idData: boolean; idPhoto: boolean };
   regulaConfiguration: Record<string, unknown>;
 
+  captureIdParams: { idPhoto: boolean; originalPhoto: boolean };
+  captureIdConfiguration: Record<string, unknown>;
+
   biometricEngine: BiometricEngine;
   facetecUseMiddleware: boolean;
   facetecMiddleware: Record<string, unknown>;
@@ -163,6 +166,13 @@ export interface WebSdkSessionInitDto {
     idData: boolean;
     idPhoto: boolean;
     captureType: RegulaCaptureType;
+    configuration: Record<string, unknown>;
+  };
+  /** Poblado solo cuando `documentCaptureEngine === "CAPTURE_ID"` — ver "FAD SDK Web CaptureId"
+   * §Parameters. No lleva `credentials`: `startCaptureId(configuration)` se autentica con el
+   * `sdkToken` ya presente en este DTO. `configuration.output.{idPhoto,originalPhoto}` se
+   * completa a partir de `captureIdParams` (mismo patrón que fad-demo-v2 FadSdkService). */
+  captureId?: {
     configuration: Record<string, unknown>;
   };
   biometricEngine: BiometricEngine;

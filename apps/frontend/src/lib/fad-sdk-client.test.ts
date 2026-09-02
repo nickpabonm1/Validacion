@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flattenRegulaAlerts, splitOcrImages, toDataUri } from "./fad-sdk-client";
+import { buildCaptureIdOcr, flattenRegulaAlerts, pickCaptureIdImage, splitOcrImages, toDataUri } from "./fad-sdk-client";
 
 const LONG_BASE64 = "A".repeat(150); // > 100 chars, solo caracteres base64 válidos
 
@@ -56,6 +56,61 @@ describe("flattenRegulaAlerts", () => {
     expect(flattenRegulaAlerts(undefined)).toEqual([]);
     expect(flattenRegulaAlerts({ authenticity: "no es un array" })).toEqual([]);
     expect(flattenRegulaAlerts({})).toEqual([]);
+  });
+});
+
+describe("pickCaptureIdImage", () => {
+  it("devuelve el string directo", () => {
+    expect(pickCaptureIdImage("abc123")).toBe("abc123");
+  });
+
+  it("extrae el base64 anidado en varias formas tolerantes", () => {
+    expect(pickCaptureIdImage({ data: "abc123" })).toBe("abc123");
+    expect(pickCaptureIdImage({ image: { data: "abc123" } })).toBe("abc123");
+    expect(pickCaptureIdImage({ base64: "abc123" })).toBe("abc123");
+    expect(pickCaptureIdImage({ uri: "abc123" })).toBe("abc123");
+  });
+
+  it("retorna undefined cuando no encuentra ningún string utilizable, sin fabricar datos", () => {
+    expect(pickCaptureIdImage(undefined)).toBeUndefined();
+    expect(pickCaptureIdImage(null)).toBeUndefined();
+    expect(pickCaptureIdImage({})).toBeUndefined();
+    expect(pickCaptureIdImage({ foo: "bar" })).toBeUndefined();
+  });
+});
+
+describe("buildCaptureIdOcr", () => {
+  it("remapea data.ocr.fields (key/value) a los mismos nombres camelCase que usa Acuant", () => {
+    const result = buildCaptureIdOcr({
+      ocr: {
+        fields: [
+          { key: "Full Name", value: "CLIENTE DEMO" },
+          { key: "Document Number", value: "0000000000" },
+          { key: "Date of Expiry", value: "2030-01-01" },
+        ],
+      },
+    });
+    expect(result.fullName).toBe("CLIENTE DEMO");
+    expect(result.documentNumber).toBe("0000000000");
+    expect(result.expirationDate).toBe("2030-01-01");
+  });
+
+  it("prioriza decodeInfo.data.biograficos (QR de INE) por encima de los fields planos", () => {
+    const result = buildCaptureIdOcr({
+      ocr: {
+        fields: [{ key: "Given Names", value: "DEL FIELD" }],
+        decodeInfo: { data: { biograficos: { nombre: "DEL QR", curp: "CURP123" } } },
+      },
+    });
+    expect(result.givenName).toBe("DEL QR");
+    expect(result.curp).toBe("CURP123");
+    expect(result.biograficos).toEqual({ nombre: "DEL QR", curp: "CURP123" });
+  });
+
+  it("no fabrica datos cuando no hay ocr: retorna los campos como undefined", () => {
+    const result = buildCaptureIdOcr({});
+    expect(result.fullName).toBeUndefined();
+    expect(result.fields).toEqual([]);
   });
 });
 
