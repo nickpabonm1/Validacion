@@ -103,8 +103,8 @@ describe("FAD contract schemas (fixtures sanitizados)", () => {
     expect(steps.captureId).toHaveProperty("features");
   });
 
-  it("pruneEmptyRequestFields siempre incluye `input` en videoagreement (FAD lo exige presente)", () => {
-    const parsed = ValidationRequestConfigSchema.parse({
+  it("rechaza un videoagreement visible sin `input.legend` (FAD lo exige y no lo documenta)", () => {
+    const broken = {
       processName: "Proceso con video-acuerdo",
       validity: 5,
       client: { name: "Cliente", mail: "cliente@example.com", phone: "+573000000000" },
@@ -112,13 +112,41 @@ describe("FAD contract schemas (fixtures sanitizados)", () => {
         location: { order: 1, show: true, configuration: {}, features: {} },
         videoagreement: { order: 2, show: true, configuration: {}, features: {} },
       },
+    };
+    // FAD respondió {"code":"InvalidInputParameter","message":"Invalid step videoagreement,
+    // property input -> legend is required"} — se valida localmente antes de llamar a FAD.
+    const result = ValidationRequestConfigSchema.safeParse(broken);
+    expect(result.success).toBe(false);
+  });
+
+  it("acepta un videoagreement visible con `input.legend` y lo conserva en pruneEmptyRequestFields", () => {
+    const parsed = ValidationRequestConfigSchema.parse({
+      processName: "Proceso con video-acuerdo",
+      validity: 5,
+      client: { name: "Cliente", mail: "cliente@example.com", phone: "+573000000000" },
+      steps: {
+        location: { order: 1, show: true, configuration: {}, features: {} },
+        videoagreement: { order: 2, show: true, configuration: {}, features: {}, input: { legend: "Acepto los términos" } },
+      },
     });
     const pruned = pruneEmptyRequestFields(parsed) as Record<string, unknown>;
     const steps = pruned.steps as Record<string, Record<string, unknown>>;
-    // FAD respondió {"code":"InvalidInputParameter","message":"Invalid step videoagreement,
-    // property input is required"} cuando `input` se omitía por estar vacío.
-    expect(steps.videoagreement).toHaveProperty("input", {});
-    // El resto de los pasos sigue omitiendo `input` cuando está vacío.
+    expect(steps.videoagreement).toHaveProperty("input", { legend: "Acepto los términos" });
     expect(steps.location).not.toHaveProperty("input");
+  });
+
+  it("no exige `legend` cuando videoagreement está oculto (show: false), pero sigue incluyendo `input`", () => {
+    const parsed = ValidationRequestConfigSchema.parse({
+      processName: "Proceso sin video-acuerdo activo",
+      validity: 5,
+      client: { name: "Cliente", mail: "cliente@example.com", phone: "+573000000000" },
+      steps: {
+        location: { order: 1, show: true, configuration: {}, features: {} },
+        videoagreement: { order: 2, show: false, configuration: {}, features: {} },
+      },
+    });
+    const pruned = pruneEmptyRequestFields(parsed) as Record<string, unknown>;
+    const steps = pruned.steps as Record<string, Record<string, unknown>>;
+    expect(steps.videoagreement).toHaveProperty("input", {});
   });
 });

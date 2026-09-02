@@ -40,6 +40,18 @@ export const StepsMapSchema = z
         message: "Los valores 'order' de los pasos visibles deben ser consecutivos empezando en 1",
       });
     }
+
+    const videoagreement = steps.videoagreement;
+    if (videoagreement?.show) {
+      const legend = videoagreement.input?.legend;
+      if (typeof legend !== "string" || legend.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "El paso 'Acuerdo en video' (videoagreement) requiere un texto (legend) — FAD lo exige.",
+          path: ["videoagreement", "input", "legend"],
+        });
+      }
+    }
   });
 
 /** Editores estructurados conocidos (sección 11). Se exportan por separado para que el
@@ -81,6 +93,14 @@ export const LivenessFeaturesSchema = z.object({
 export const FingerprintsConfigurationSchema = z.object({
   fingers: z.array(z.string()).min(1).max(10),
   format: z.enum(["wsq", "jpeg", "both"]).optional(),
+});
+
+/** `steps.videoagreement.input` — confirmado con un error real de la API (no documentado en el
+ * PDF ni en la colección Postman): {"code":"InvalidInputParameter","message":"Invalid step
+ * videoagreement, property input -> legend is required"}. `legend` es el texto que el cliente
+ * debe leer en voz alta durante la grabación del acuerdo. */
+export const VideoagreementInputSchema = z.object({
+  legend: z.string().min(1, "El texto del acuerdo (legend) es obligatorio").max(2000),
 });
 
 export const IdDetectionConfigurationSchema = z.object({

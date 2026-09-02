@@ -81,7 +81,7 @@ export const STEP_CATALOG: readonly StepCatalogEntry[] = [
     key: "videoagreement",
     label: "Acuerdo en video",
     description: "Graba un video de aceptación del acuerdo/consentimiento.",
-    hasStructuredEditor: false,
+    hasStructuredEditor: true,
   },
   {
     key: "idDetection",

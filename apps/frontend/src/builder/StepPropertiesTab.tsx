@@ -11,6 +11,7 @@ import { LivenessEditor } from "./editors/LivenessEditor";
 import { FingerprintsEditor } from "./editors/FingerprintsEditor";
 import { IdDetectionEditor } from "./editors/IdDetectionEditor";
 import { FormValidationIdEditor } from "./editors/FormValidationIdEditor";
+import { VideoagreementEditor } from "./editors/VideoagreementEditor";
 import { AdvancedJsonEditor } from "./editors/AdvancedJsonEditor";
 import type { StepEditorProps } from "./editors/types";
 
@@ -22,6 +23,7 @@ const STRUCTURED_EDITORS: Record<string, (props: StepEditorProps) => JSX.Element
   fingerprints: FingerprintsEditor,
   idDetection: IdDetectionEditor,
   formValidationId: FormValidationIdEditor,
+  videoagreement: VideoagreementEditor,
 };
 
 interface StepPropertiesTabProps {
