@@ -103,6 +103,21 @@ export const VideoagreementInputSchema = z.object({
   legend: z.string().min(1, "El texto del acuerdo (legend) es obligatorio").max(2000),
 });
 
+/** `steps.videoagreement.configuration` — opcional. Confirmado que FAD acepta esta estructura
+ * (no documentada en el PDF ni en la colección Postman) para acotar la duración de la grabación. */
+export const VideoagreementConfigurationSchema = z.object({
+  timer: z
+    .object({
+      recording: z
+        .object({
+          min: z.number().int().min(0).optional(),
+          max: z.number().int().min(0).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
 export const IdDetectionConfigurationSchema = z.object({
   startSecond: z.number().int().min(0).optional(),
   identifications: z
