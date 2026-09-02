@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle2, Circle, Clock, Copy, Eye, Loader2, RefreshCcw, XCircle } from "lucide-react";
 import { useExecutionDetail, useRevealSecret, useSyncExecution } from "../features/executions/useExecutions";
@@ -46,6 +46,21 @@ export function ExecutionDetailPage() {
   }, [selectedViewId, views]);
 
   const { data: renderedFields, isLoading: loadingView } = useApplyResponseView(activeView, executionId);
+
+  // Auto-consulta el estado una vez al abrir una ejecución que todavía no llegó a un estado
+  // terminal (CREATED/IN_PROGRESS/UNKNOWN) — sin esto, el operador ve el snapshot de la última
+  // vez que alguien pulsó «Consultar estado» (a veces vacío, de cuando la validación se creó),
+  // aunque FAD ya tenga el resultado completo. No se repite en cada render ni para ejecuciones ya
+  // terminadas (COMPLETED/FAILED/EXPIRED/CANCELLED), para no golpear la API de FAD sin necesidad.
+  const autoSyncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!execution || autoSyncedRef.current === execution.id) return;
+    const terminal = ["COMPLETED", "FAILED", "EXPIRED", "CANCELLED"].includes(execution.normalizedStatus);
+    if (terminal) return;
+    autoSyncedRef.current = execution.id;
+    syncExecution.mutate(execution.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [execution?.id, execution?.normalizedStatus]);
 
   if (isLoading) {
     return (

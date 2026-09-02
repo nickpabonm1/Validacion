@@ -178,11 +178,17 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
   const dataBlock = params.dataResponse?.data ?? null;
   const stepBlock = params.stepResponse?.data ?? null;
   const stepsFromApi = asRecord(stepBlock?.steps);
+  // Defensivo: `requestSteps` viene de `requestPayload.steps` deserializado — nunca debería
+  // faltar en una ejecución creada por el flujo normal, pero si llegara `undefined`/`null` (fila
+  // corrupta, dato antiguo), no debe tumbar el endpoint de sincronización con un error de bajo
+  // nivel (`Object.keys(undefined)`); se trata como "sin pasos de la solicitud" y se sigue
+  // mostrando lo que sí venga de la API de FAD (`stepsFromApi`).
+  const requestSteps = params.requestSteps ?? {};
 
-  const stepKeys = new Set<string>([...Object.keys(params.requestSteps), ...Object.keys(stepsFromApi)]);
+  const stepKeys = new Set<string>([...Object.keys(requestSteps), ...Object.keys(stepsFromApi)]);
   const steps: NormalizedStep[] = [...stepKeys].map((key) => {
     const apiStep = asRecord(stepsFromApi[key]);
-    const requestStep = params.requestSteps[key];
+    const requestStep = requestSteps[key];
     const timestamps = params.stepTimestamps?.[key];
     const rawStatus = typeof apiStep.status === "string" ? apiStep.status : null;
 

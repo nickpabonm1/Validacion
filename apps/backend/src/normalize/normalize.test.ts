@@ -133,4 +133,20 @@ describe("buildNormalizedValidationDetail", () => {
     expect(detail.steps[0]!.status).toBe("PENDING");
     expect(detail.progressPercent).toBe(0);
   });
+
+  it("no lanza cuando requestSteps es undefined/null (fila con requestPayload sin `steps` — bug real encontrado al probar el auto-sync)", () => {
+    const detail = buildNormalizedValidationDetail({
+      validationId: "demo-3",
+      processName: "Proceso con requestPayload incompleto",
+      environmentName: "Demo",
+      templateName: null,
+      requestSteps: undefined as never,
+      fallbackClient: { name: "Cliente", mail: null, phone: null },
+      createResponse: null,
+      stepResponse: null,
+      dataResponse: null,
+    });
+    expect(detail.steps).toEqual([]);
+    expect(detail.status).toBe("UNKNOWN");
+  });
 });
