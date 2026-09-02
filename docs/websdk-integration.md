@@ -68,10 +68,21 @@ ningún cambio, sin importar el modelo de integración.
 ## Flujo del operador (frontend)
 
 `Nueva ejecución` (`NewExecutionPage`) distingue ambientes `WEB_SDK` (badge "Web SDK") y
-redirige a `/executions/new-websdk?environmentId=...` (`WebSdkCapturePage`), un asistente lineal:
-selección de ambiente + datos del cliente → captura de documento (con reintento automático si
-NAAT-CHECK rechaza, hasta `checkMaxAttempts`) → prueba de vida → finalizar (compara, cifra,
-guarda) → redirige al detalle de la ejecución normal.
+redirige a `/executions/new-websdk?environmentId=...` (`WebSdkCapturePage`), un onboarding lineal
+y sencillo de cara al cliente: selección de ambiente + datos del cliente → captura de documento
+(con reintento automático si NAAT-CHECK rechaza, hasta `checkMaxAttempts`) → prueba de vida →
+finalizar (compara, cifra, guarda) → redirige al detalle de la ejecución normal.
+
+Todo el copy que ve el cliente en cada paso (título/texto de bienvenida, instrucciones de
+documento y prueba de vida, mensaje al reintentar, mensaje de éxito/bloqueo, error genérico) es
+configurable por ambiente en Ambientes → pestaña "Web SDK" → sección "Mensajes del onboarding"
+(`WebSdkConfig.onboardingMessages`, ver `WebSdkOnboardingMessagesSchema`) — nunca texto embebido
+en el código. Un ambiente recién creado ya trae mensajes neutros por defecto, así que el
+onboarding funciona sin que el operador escriba nada.
+
+La parametrización propia de cada SDK (colores/leyendas/vistas de `startAcuant`/`startFacetec`
+vía `acuantConfiguration`/`facetecConfiguration`, qué extraer con `acuantParams`, captura manual
+vs. automática, middleware de Facetec) también se edita ahí mismo — ver `WebSdkConfigForm.tsx`.
 
 ## Verificación realizada
 

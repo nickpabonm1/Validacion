@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Fingerprint, IdCard, Loader2, RefreshCcw, XCircle } from "lucide-react";
-import type { WebSdkSessionInitDto } from "@fad-console/shared-types";
+import type { WebSdkSessionInitDto, WebSdkOnboardingMessagesDto } from "@fad-console/shared-types";
+import { DEFAULT_ONBOARDING_MESSAGES } from "@fad-console/validation-schemas";
 import type { WebSdkAcuantResultInput, WebSdkFacetecResultInput } from "@fad-console/validation-schemas";
-import { useEnvironments } from "../features/environments/useEnvironments";
+import { useEnvironments, useWebSdkConfig } from "../features/environments/useEnvironments";
 import { useStartWebSdk, useSubmitAcuantResult, useSubmitFacetecResult, useCompleteWebSdk } from "../features/websdk/useWebSdk";
 import { runAcuantCapture, runFacetecCapture, describeSdkError } from "../lib/fad-sdk-client";
 import { PageHeader, EmptyState, Spinner } from "../components/ui/misc";
@@ -16,6 +17,9 @@ import { useToast } from "../components/ui/toast";
 
 type Phase = "setup" | "document" | "liveness" | "completing" | "done" | "blocked";
 
+/** Onboarding sencillo de cara al cliente: cada paso muestra el título/texto configurado por el
+ * operador en Ambientes → Web SDK → «Mensajes del onboarding» (nunca texto embebido en el
+ * código), con un mensaje neutro por defecto mientras el ambiente no personalice nada. */
 export function WebSdkCapturePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -37,6 +41,9 @@ export function WebSdkCapturePage() {
   const [checkStatus, setCheckStatus] = useState<{ attemptsUsed: number; attemptsMax: number; risk: string } | null>(null);
   const [acuantResult, setAcuantResult] = useState<WebSdkAcuantResultInput | null>(null);
   const [facetecResult, setFacetecResult] = useState<WebSdkFacetecResultInput | null>(null);
+
+  const { data: webSdkConfig } = useWebSdkConfig(environmentId || undefined);
+  const messages: WebSdkOnboardingMessagesDto = webSdkConfig?.onboardingMessages ?? DEFAULT_ONBOARDING_MESSAGES;
 
   const canStart = Boolean(environmentId && client.name && client.mail && client.phone);
 
@@ -67,9 +74,9 @@ export function WebSdkCapturePage() {
         setPhase("liveness");
       } else if (check.exhausted) {
         setPhase("blocked");
-        setError(`NAAT-CHECK rechazó el documento (riesgo ${check.risk}) y se agotaron los ${check.attemptsMax} intentos permitidos.`);
+        setError(messages.blockedBody);
       } else {
-        setError(`NAAT-CHECK rechazó el documento (riesgo ${check.risk}). Vuelve a capturar (intento ${check.attemptsUsed}/${check.attemptsMax}).`);
+        setError(`${messages.documentRetryBody} (intento ${check.attemptsUsed}/${check.attemptsMax})`);
       }
     } catch (e) {
       setError(describeSdkError(e));
@@ -120,6 +127,12 @@ export function WebSdkCapturePage() {
         <CardContent className="space-y-6 p-6">
           {phase === "setup" ? (
             <div className="space-y-4">
+              {environmentId ? (
+                <div>
+                  <h2 className="text-lg font-semibold">{messages.welcomeTitle}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{messages.welcomeBody}</p>
+                </div>
+              ) : null}
               <h2 className="text-sm font-semibold">Selecciona un ambiente Web SDK</h2>
               {loadingEnvironments ? (
                 <Spinner />
@@ -177,15 +190,11 @@ export function WebSdkCapturePage() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <IdCard className="h-5 w-5 text-primary" />
-                <h2 className="text-sm font-semibold">Captura de documento (Acuant)</h2>
+                <h2 className="text-lg font-semibold">{messages.documentTitle}</h2>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Se abrirá el módulo de captura del documento. Al finalizar, se evalúa automáticamente el riesgo (NAAT-CHECK).
-              </p>
+              <p className="text-sm text-muted-foreground">{checkStatus ? messages.documentRetryBody : messages.documentBody}</p>
               {checkStatus ? (
-                <p className="text-xs text-muted-foreground">
-                  Último intento: riesgo {checkStatus.risk} ({checkStatus.attemptsUsed}/{checkStatus.attemptsMax})
-                </p>
+                <p className="text-xs text-muted-foreground">Intento {checkStatus.attemptsUsed}/{checkStatus.attemptsMax}</p>
               ) : null}
               <Button disabled={busy} onClick={handleCaptureDocument}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
@@ -198,9 +207,9 @@ export function WebSdkCapturePage() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Fingerprint className="h-5 w-5 text-primary" />
-                <h2 className="text-sm font-semibold">Prueba de vida (Facetec)</h2>
+                <h2 className="text-lg font-semibold">{messages.livenessTitle}</h2>
               </div>
-              <p className="text-xs text-muted-foreground">Documento aceptado. Ahora se verificará que hay una persona real frente a la cámara.</p>
+              <p className="text-sm text-muted-foreground">{messages.livenessBody}</p>
               <Button disabled={busy} onClick={handleCaptureLiveness}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Iniciar prueba de vida
@@ -212,11 +221,9 @@ export function WebSdkCapturePage() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-success" />
-                <h2 className="text-sm font-semibold">Finalizar validación</h2>
+                <h2 className="text-lg font-semibold">{messages.completingTitle}</h2>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Se comparará el rostro del documento con la selfie, se cifrará la información y se guardará en FAD.
-              </p>
+              <p className="text-sm text-muted-foreground">{messages.completingBody}</p>
               <Button disabled={busy} onClick={handleComplete}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Finalizar y guardar
@@ -228,16 +235,20 @@ export function WebSdkCapturePage() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-5 w-5" />
-                <h2 className="text-sm font-semibold">Validación completada</h2>
+                <h2 className="text-lg font-semibold">{messages.successTitle}</h2>
               </div>
+              <p className="text-sm text-muted-foreground">{messages.successBody}</p>
               <Button onClick={() => navigate(`/executions/${sdkInit.executionId}`)}>Ver detalle de la validación</Button>
             </div>
           ) : null}
 
           {phase === "blocked" ? (
-            <div className="flex items-center gap-2 text-destructive">
-              <XCircle className="h-5 w-5" />
-              <p className="text-sm">Se agotaron los intentos permitidos. Inicia una nueva sesión para volver a intentarlo.</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-destructive">
+                <XCircle className="h-5 w-5" />
+                <h2 className="text-lg font-semibold">{messages.blockedTitle}</h2>
+              </div>
+              <p className="text-sm text-destructive">{messages.blockedBody}</p>
             </div>
           ) : null}
 

@@ -1,5 +1,6 @@
 import type { WebSdkConfigDto, DocumentCaptureEngine, BiometricEngine, RiskLevel } from "@fad-console/shared-types";
 import type { WebSdkConfigInput } from "@fad-console/validation-schemas";
+import { DEFAULT_ONBOARDING_MESSAGES } from "@fad-console/validation-schemas";
 import { prisma } from "../../lib/prisma";
 import { fromJsonField, toJsonField } from "../../lib/json-field";
 import { credentialEncryptionService } from "../credentials/credential-encryption.service";
@@ -47,6 +48,11 @@ export function toWebSdkConfigDto(config: WebSdkConfigRecord): WebSdkConfigDto {
     checkMaxAttempts: config.checkMaxAttempts,
     checkAcceptedRisk: config.checkAcceptedRisk as RiskLevel,
     faceMatchMinConfidence: config.faceMatchMinConfidence,
+
+    onboardingMessages: {
+      ...DEFAULT_ONBOARDING_MESSAGES,
+      ...fromJsonField(config.onboardingMessages, {}),
+    },
 
     createdAt: config.createdAt.toISOString(),
     updatedAt: config.updatedAt.toISOString(),
@@ -96,6 +102,7 @@ export async function upsertWebSdkConfig(environmentId: string, input: WebSdkCon
     checkMaxAttempts: input.checkMaxAttempts,
     checkAcceptedRisk: input.checkAcceptedRisk,
     faceMatchMinConfidence: input.faceMatchMinConfidence,
+    onboardingMessages: toJsonField(input.onboardingMessages),
   };
 
   return prisma.webSdkConfig.upsert({

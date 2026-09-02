@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { WebSdkConfigInputSchema, type WebSdkConfigInput } from "@fad-console/validation-schemas";
+import { WebSdkConfigInputSchema, DEFAULT_ONBOARDING_MESSAGES, type WebSdkConfigInput } from "@fad-console/validation-schemas";
 import type { WebSdkConfigDto } from "@fad-console/shared-types";
 import {
   useWebSdkConfig,
@@ -37,6 +37,7 @@ const BLANK: WebSdkConfigInput = {
   checkMaxAttempts: 3,
   checkAcceptedRisk: "LOW",
   faceMatchMinConfidence: 85,
+  onboardingMessages: DEFAULT_ONBOARDING_MESSAGES,
 };
 
 function toFormValues(config: WebSdkConfigDto): WebSdkConfigInput {
@@ -60,6 +61,7 @@ function toFormValues(config: WebSdkConfigDto): WebSdkConfigInput {
     checkMaxAttempts: config.checkMaxAttempts,
     checkAcceptedRisk: config.checkAcceptedRisk,
     faceMatchMinConfidence: config.faceMatchMinConfidence,
+    onboardingMessages: config.onboardingMessages,
   };
 }
 
@@ -342,6 +344,61 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
           </Field>
           <Field label="Confianza mínima del match facial (%)" htmlFor="faceMatchMinConfidence">
             <Input id="faceMatchMinConfidence" type="number" {...register("faceMatchMinConfidence", { valueAsNumber: true })} />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mensajes del onboarding</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <p className="text-xs text-muted-foreground md:col-span-2">
+            Texto que ve el cliente final en cada paso de la captura (<code>/executions/new-websdk</code>). No hace falta
+            tocarlos: cada campo trae un mensaje neutro por defecto.
+          </p>
+          <Field label="Bienvenida — título" htmlFor="welcomeTitle">
+            <Input id="welcomeTitle" {...register("onboardingMessages.welcomeTitle")} />
+          </Field>
+          <Field label="Bienvenida — texto" htmlFor="welcomeBody">
+            <Textarea id="welcomeBody" rows={2} {...register("onboardingMessages.welcomeBody")} />
+          </Field>
+          <Field label="Documento — título" htmlFor="documentTitle">
+            <Input id="documentTitle" {...register("onboardingMessages.documentTitle")} />
+          </Field>
+          <Field label="Documento — instrucciones" htmlFor="documentBody">
+            <Textarea id="documentBody" rows={2} {...register("onboardingMessages.documentBody")} />
+          </Field>
+          <Field label="Documento — mensaje al reintentar" htmlFor="documentRetryBody">
+            <Textarea id="documentRetryBody" rows={2} {...register("onboardingMessages.documentRetryBody")} />
+          </Field>
+          <div />
+          <Field label="Prueba de vida — título" htmlFor="livenessTitle">
+            <Input id="livenessTitle" {...register("onboardingMessages.livenessTitle")} />
+          </Field>
+          <Field label="Prueba de vida — instrucciones" htmlFor="livenessBody">
+            <Textarea id="livenessBody" rows={2} {...register("onboardingMessages.livenessBody")} />
+          </Field>
+          <Field label="Finalizando — título" htmlFor="completingTitle">
+            <Input id="completingTitle" {...register("onboardingMessages.completingTitle")} />
+          </Field>
+          <Field label="Finalizando — texto" htmlFor="completingBody">
+            <Textarea id="completingBody" rows={2} {...register("onboardingMessages.completingBody")} />
+          </Field>
+          <Field label="Éxito — título" htmlFor="successTitle">
+            <Input id="successTitle" {...register("onboardingMessages.successTitle")} />
+          </Field>
+          <Field label="Éxito — texto" htmlFor="successBody">
+            <Textarea id="successBody" rows={2} {...register("onboardingMessages.successBody")} />
+          </Field>
+          <Field label="Bloqueado — título" htmlFor="blockedTitle">
+            <Input id="blockedTitle" {...register("onboardingMessages.blockedTitle")} />
+          </Field>
+          <Field label="Bloqueado — texto" htmlFor="blockedBody">
+            <Textarea id="blockedBody" rows={2} {...register("onboardingMessages.blockedBody")} />
+          </Field>
+          <Field label="Error genérico" htmlFor="genericErrorBody">
+            <Textarea id="genericErrorBody" rows={2} {...register("onboardingMessages.genericErrorBody")} />
           </Field>
         </CardContent>
       </Card>

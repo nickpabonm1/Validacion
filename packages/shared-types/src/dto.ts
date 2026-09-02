@@ -50,6 +50,23 @@ export interface ApiEnvironmentDto {
  * Representación pública de un WebSdkConfig: NUNCA incluye secretos, solo banderas
  * `*Configured`. Ver docs/security-decisions.md y docs/websdk-integration.md.
  */
+export interface WebSdkOnboardingMessagesDto {
+  welcomeTitle: string;
+  welcomeBody: string;
+  documentTitle: string;
+  documentBody: string;
+  documentRetryBody: string;
+  livenessTitle: string;
+  livenessBody: string;
+  completingTitle: string;
+  completingBody: string;
+  successTitle: string;
+  successBody: string;
+  blockedTitle: string;
+  blockedBody: string;
+  genericErrorBody: string;
+}
+
 export interface WebSdkConfigDto {
   environmentId: string;
   sdkBaseUrl: string;
@@ -82,6 +99,8 @@ export interface WebSdkConfigDto {
   checkMaxAttempts: number;
   checkAcceptedRisk: RiskLevel;
   faceMatchMinConfidence: number;
+
+  onboardingMessages: WebSdkOnboardingMessagesDto;
 
   createdAt: string;
   updatedAt: string;

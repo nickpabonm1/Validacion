@@ -144,6 +144,10 @@ model WebSdkConfig {
   checkAcceptedRisk      String @default("LOW")
   faceMatchMinConfidence Float  @default(85)
 
+  /// JSON serializado: copy configurable del front de onboarding (ver
+  /// WebSdkOnboardingMessagesSchema) — nunca contiene secretos, solo textos de cara al cliente.
+  onboardingMessages String @default("{}")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
