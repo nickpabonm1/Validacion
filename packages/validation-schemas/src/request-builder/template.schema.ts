@@ -53,6 +53,14 @@ export function pruneEmptyRequestFields(config: ValidationRequestConfig): unknow
     }
     if (step.input && Object.keys(step.input).length > 0) {
       cleanStep.input = step.input;
+    } else if (key === "videoagreement") {
+      // FAD exige la propiedad `input` presente en `videoagreement` aunque esté vacía —
+      // confirmado con un error real de la API: {"code":"InvalidInputParameter","message":
+      // "Invalid step videoagreement, property input is required"}. No hay documentación (ni en
+      // el PDF ni en la colección Postman) de qué contenido opcional admite, así que se envía
+      // vacío; el resto de los pasos sigue omitiendo `input` cuando está vacío (sección 8 del
+      // brief: no incluir propiedades vacías que la API no espera).
+      cleanStep.input = {};
     }
     steps[key] = cleanStep;
   }
