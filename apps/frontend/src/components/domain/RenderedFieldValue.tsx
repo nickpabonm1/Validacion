@@ -1,5 +1,7 @@
+import type { NormalizedDocumentCheck } from "@fad-console/shared-types";
 import type { RenderedField } from "../../features/response-views/useResponseViews";
 import { Badge } from "../ui/badge";
+import { DocumentChecksGroups } from "./DocumentChecksReport";
 
 function formatDate(value: unknown, withTime: boolean): string {
   if (typeof value !== "string" && typeof value !== "number") return "—";
@@ -74,6 +76,14 @@ export function RenderedFieldValue({ field }: { field: RenderedField }) {
       );
     case "JSON":
       return <pre className="max-h-60 overflow-auto rounded bg-muted p-2 text-xs">{JSON.stringify(value, null, 2)}</pre>;
+    case "DOCUMENT_CHECKS":
+      return Array.isArray(value) ? (
+        <div className="max-h-96 overflow-auto">
+          <DocumentChecksGroups checks={value as NormalizedDocumentCheck[]} />
+        </div>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      );
     default:
       return <span>{typeof value === "object" ? JSON.stringify(value) : String(value)}</span>;
   }

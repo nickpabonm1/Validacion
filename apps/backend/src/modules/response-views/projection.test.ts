@@ -85,4 +85,61 @@ describe("projectResponseView (motor de proyección seguro, sin eval)", () => {
       projectResponseView({ ...detail, status: "IN_PROGRESS" }, config, "OPERATOR"),
     ).toHaveLength(0);
   });
+
+  it("DOCUMENT_CHECKS: filtra documentChecks por categoría cuando se configuran documentCheckCategories", () => {
+    const detailWithChecks = {
+      ...detail,
+      documentChecks: [
+        { category: "textCrossChecks", page: null, name: "Surname", description: null, result: "OK", resultDescription: null, sources: null },
+        { category: "imageQuality", page: 1, name: "IMAGE_FOCUS", description: null, result: "ERROR", resultDescription: null, sources: null },
+      ],
+    };
+    const config = {
+      fields: [
+        {
+          id: "g",
+          path: "documentChecks",
+          label: "Validación de documento",
+          group: "Documento",
+          order: 0,
+          visible: true,
+          showOnlyIfHasValue: false,
+          renderType: "DOCUMENT_CHECKS" as const,
+          sensitivity: "INTERNAL" as const,
+          documentCheckCategories: ["imageQuality"],
+        },
+      ],
+    };
+    const fields = projectResponseView(detailWithChecks, config, "OPERATOR");
+    expect(fields[0]!.value).toEqual([
+      { category: "imageQuality", page: 1, name: "IMAGE_FOCUS", description: null, result: "ERROR", resultDescription: null, sources: null },
+    ]);
+  });
+
+  it("DOCUMENT_CHECKS: sin documentCheckCategories configuradas, no filtra (muestra todo)", () => {
+    const detailWithChecks = {
+      ...detail,
+      documentChecks: [
+        { category: "textCrossChecks", page: null, name: "Surname", description: null, result: "OK", resultDescription: null, sources: null },
+        { category: "imageQuality", page: 1, name: "IMAGE_FOCUS", description: null, result: "ERROR", resultDescription: null, sources: null },
+      ],
+    };
+    const config = {
+      fields: [
+        {
+          id: "h",
+          path: "documentChecks",
+          label: "Validación de documento",
+          group: "Documento",
+          order: 0,
+          visible: true,
+          showOnlyIfHasValue: false,
+          renderType: "DOCUMENT_CHECKS" as const,
+          sensitivity: "INTERNAL" as const,
+        },
+      ],
+    };
+    const fields = projectResponseView(detailWithChecks, config, "OPERATOR");
+    expect((fields[0]!.value as unknown[]).length).toBe(2);
+  });
 });

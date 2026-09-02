@@ -101,6 +101,7 @@ export const FIELD_RENDER_TYPES = [
   "LINK",
   "COORDINATES",
   "MASKED",
+  "DOCUMENT_CHECKS",
 ] as const;
 export type FieldRenderType = (typeof FIELD_RENDER_TYPES)[number];
 

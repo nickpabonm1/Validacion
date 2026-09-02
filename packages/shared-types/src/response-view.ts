@@ -44,6 +44,10 @@ export interface ResponseFieldConfig {
   numberFormat?: string;
   unit?: string;
   badgeColorMap?: Record<string, "success" | "warning" | "error" | "info" | "neutral">;
+  /** Solo para `renderType: "DOCUMENT_CHECKS"`: categorías de `documentChecks` a incluir
+   * (`textCrossChecks`, `imageQuality`, `mrzCheckDigit`, `dateChecks`, `authenticity`,
+   * `documentValidation`). Vacío o ausente = mostrar todas. */
+  documentCheckCategories?: string[];
   sensitivity: SensitivityLevel;
   requiredRole?: "ADMIN" | "OPERATOR" | "AUDITOR";
   defaultValue?: string;

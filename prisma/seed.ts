@@ -219,7 +219,7 @@ async function main() {
       { id: "t6", path: "ocr", label: "Datos OCR", group: "Datos OCR", order: 5, visible: true, showOnlyIfHasValue: true, renderType: "TABLE", sensitivity: "SENSITIVE" },
       { id: "t7", path: "externalValidations", label: "Validaciones externas", group: "Validaciones externas", order: 6, visible: true, showOnlyIfHasValue: true, renderType: "JSON", sensitivity: "INTERNAL" },
       { id: "t8", path: "raw", label: "Respuestas originales", group: "Información técnica", order: 7, visible: true, showOnlyIfHasValue: false, renderType: "JSON", sensitivity: "INTERNAL" },
-      { id: "t9", path: "documentChecks", label: "Validación de documento (autenticidad, calidad, MRZ)", group: "Documento", order: 8, visible: true, showOnlyIfHasValue: true, renderType: "LIST", sensitivity: "INTERNAL" },
+      { id: "t9", path: "documentChecks", label: "Validación de documento (autenticidad, calidad, MRZ)", group: "Documento", order: 8, visible: true, showOnlyIfHasValue: true, renderType: "DOCUMENT_CHECKS", sensitivity: "INTERNAL" },
       { id: "t10", path: "clientDetails", label: "Datos adicionales del cliente", group: "Cliente", order: 9, visible: true, showOnlyIfHasValue: true, renderType: "TABLE", sensitivity: "SENSITIVE" },
       { id: "t11", path: "governmentValidation", label: "Validación con gobierno", group: "Validaciones externas", order: 10, visible: true, showOnlyIfHasValue: true, renderType: "TABLE", sensitivity: "INTERNAL" },
       { id: "t12", path: "naatCheckResult", label: "NAAT-CHECK", group: "Validaciones externas", order: 11, visible: true, showOnlyIfHasValue: true, renderType: "TABLE", sensitivity: "INTERNAL" },

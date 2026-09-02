@@ -16,6 +16,7 @@ export interface ResponseFieldConfigDto {
   numberFormat?: string;
   unit?: string;
   badgeColorMap?: Record<string, string>;
+  documentCheckCategories?: string[];
   sensitivity: string;
   requiredRole?: string;
   defaultValue?: string;

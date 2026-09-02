@@ -90,7 +90,14 @@ export function projectResponseView(
     if (!evaluateCondition(detail, field.condition)) continue;
 
     const shouldMask = field.sensitivity === "SECRET" || field.renderType === "MASKED";
-    const resolved = isEmpty ? (field.defaultValue ?? null) : rawValue;
+    let resolved = isEmpty ? (field.defaultValue ?? null) : rawValue;
+    if (field.renderType === "DOCUMENT_CHECKS" && field.documentCheckCategories?.length && Array.isArray(resolved)) {
+      const allowed = new Set(field.documentCheckCategories);
+      resolved = resolved.filter((item) => {
+        const category = (item as { category?: unknown })?.category;
+        return typeof category === "string" && allowed.has(category);
+      });
+    }
     const value = shouldMask && typeof resolved === "string" ? maskGeneric(resolved) : resolved;
 
     results.push({

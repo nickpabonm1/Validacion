@@ -27,9 +27,12 @@ import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Checkbox } from "../components/ui/checkbox";
 import { JsonTree } from "../components/domain/JsonTree";
+import { CATEGORY_LABELS as DOCUMENT_CHECK_CATEGORY_LABELS } from "../components/domain/DocumentChecksReport";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
 import { useToast } from "../components/ui/toast";
+
+const DOCUMENT_CHECK_CATEGORIES = Object.keys(DOCUMENT_CHECK_CATEGORY_LABELS);
 
 function inferRenderType(value: unknown): (typeof FIELD_RENDER_TYPES)[number] {
   if (typeof value === "boolean") return "BOOLEAN";
@@ -50,55 +53,82 @@ function FieldRow({
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
+  const isDocumentChecks = field.renderType === "DOCUMENT_CHECKS";
+  const selectedCategories = field.documentCheckCategories ?? [];
+
+  function toggleCategory(category: string, checked: boolean) {
+    const next = checked ? [...selectedCategories, category] : selectedCategories.filter((c) => c !== category);
+    onChange({ ...field, documentCheckCategories: next });
+  }
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto_auto_auto] items-center gap-2 rounded-md border border-border p-2", isDragging && "opacity-60")}
+      className={cn("rounded-md border border-border p-2", isDragging && "opacity-60")}
     >
-      <button type="button" className="cursor-grab text-muted-foreground active:cursor-grabbing" {...attributes} {...listeners}>
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <div className="min-w-0">
-        <p className="truncate font-mono text-[11px] text-muted-foreground">{field.path}</p>
-        <Input value={field.label} onChange={(e) => onChange({ ...field, label: e.target.value })} className="h-7 text-xs" />
+      <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto_auto_auto] items-center gap-2">
+        <button type="button" className="cursor-grab text-muted-foreground active:cursor-grabbing" {...attributes} {...listeners}>
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="min-w-0">
+          <p className="truncate font-mono text-[11px] text-muted-foreground">{field.path}</p>
+          <Input value={field.label} onChange={(e) => onChange({ ...field, label: e.target.value })} className="h-7 text-xs" />
+        </div>
+        <Select value={field.group} onChange={(e) => onChange({ ...field, group: e.target.value })} className="h-7 text-xs">
+          {RESPONSE_FIELD_GROUPS.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </Select>
+        <Select value={field.renderType} onChange={(e) => onChange({ ...field, renderType: e.target.value as ResponseFieldConfigDto["renderType"] })} className="h-7 text-xs">
+          {FIELD_RENDER_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </Select>
+        <Select value={field.sensitivity} onChange={(e) => onChange({ ...field, sensitivity: e.target.value })} className="h-7 text-xs">
+          {SENSITIVITY_LEVELS.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </Select>
+        <label className="flex items-center gap-1 text-xs" title="Visible">
+          <Checkbox checked={field.visible} onCheckedChange={(v) => onChange({ ...field, visible: v === true })} />
+          Visible
+        </label>
+        <label className="flex items-center gap-1 text-xs" title="Solo si tiene valor">
+          <Checkbox
+            checked={field.showOnlyIfHasValue}
+            onCheckedChange={(v) => onChange({ ...field, showOnlyIfHasValue: v === true })}
+          />
+          Con valor
+        </label>
+        <Button variant="ghost" size="icon" aria-label="Eliminar campo" onClick={onRemove}>
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
       </div>
-      <Select value={field.group} onChange={(e) => onChange({ ...field, group: e.target.value })} className="h-7 text-xs">
-        {RESPONSE_FIELD_GROUPS.map((g) => (
-          <option key={g} value={g}>
-            {g}
-          </option>
-        ))}
-      </Select>
-      <Select value={field.renderType} onChange={(e) => onChange({ ...field, renderType: e.target.value as ResponseFieldConfigDto["renderType"] })} className="h-7 text-xs">
-        {FIELD_RENDER_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-      </Select>
-      <Select value={field.sensitivity} onChange={(e) => onChange({ ...field, sensitivity: e.target.value })} className="h-7 text-xs">
-        {SENSITIVITY_LEVELS.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </Select>
-      <label className="flex items-center gap-1 text-xs" title="Visible">
-        <Checkbox checked={field.visible} onCheckedChange={(v) => onChange({ ...field, visible: v === true })} />
-        Visible
-      </label>
-      <label className="flex items-center gap-1 text-xs" title="Solo si tiene valor">
-        <Checkbox
-          checked={field.showOnlyIfHasValue}
-          onCheckedChange={(v) => onChange({ ...field, showOnlyIfHasValue: v === true })}
-        />
-        Con valor
-      </label>
-      <Button variant="ghost" size="icon" aria-label="Eliminar campo" onClick={onRemove}>
-        <Trash2 className="h-4 w-4 text-destructive" />
-      </Button>
+      {isDocumentChecks ? (
+        <div className="mt-2 border-t border-border pt-2">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Qué mostrar (sin marcar ninguna = todo lo disponible)
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {DOCUMENT_CHECK_CATEGORIES.map((category) => (
+              <label key={category} className="flex items-center gap-1.5 text-xs">
+                <Checkbox
+                  checked={selectedCategories.includes(category)}
+                  onCheckedChange={(v) => toggleCategory(category, v === true)}
+                />
+                {DOCUMENT_CHECK_CATEGORY_LABELS[category]}
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -154,12 +184,12 @@ export function ResponseDesignerPage() {
       {
         id: crypto.randomUUID(),
         path,
-        label,
-        group: "Información técnica",
+        label: path === "documentChecks" ? "Validación de documento" : label,
+        group: path === "documentChecks" ? "Documento" : "Información técnica",
         order: prev.length,
         visible: true,
         showOnlyIfHasValue: false,
-        renderType: inferRenderType(sampleValue),
+        renderType: path === "documentChecks" ? "DOCUMENT_CHECKS" : inferRenderType(sampleValue),
         sensitivity: "INTERNAL",
       },
     ]);

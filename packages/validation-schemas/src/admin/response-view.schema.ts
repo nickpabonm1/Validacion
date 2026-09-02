@@ -22,6 +22,7 @@ export const ResponseFieldConfigSchema = z.object({
   numberFormat: z.string().max(60).optional(),
   unit: z.string().max(30).optional(),
   badgeColorMap: z.record(z.enum(["success", "warning", "error", "info", "neutral"])).optional(),
+  documentCheckCategories: z.array(z.string()).optional(),
   sensitivity: z.enum(SENSITIVITY_LEVELS).default("INTERNAL"),
   requiredRole: z.enum(USER_ROLES).optional(),
   defaultValue: z.string().max(200).optional(),

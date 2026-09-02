@@ -1,6 +1,12 @@
 import { AlertTriangle, CheckCircle2, MinusCircle } from "lucide-react";
 import type { NormalizedDocumentCheck } from "@fad-console/shared-types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  translateCheckDescription,
+  translateCheckName,
+  translateResultDescription,
+  translateResultLabel,
+} from "../../lib/document-check-i18n";
 
 /** Orden y etiquetas de las 5 categorías de `steps.captureId.data.alerts`, igual que las
  * secciones que ya muestra el Portal FAD (confirmado con una respuesta real de FAD, no
@@ -14,7 +20,7 @@ const CATEGORY_ORDER = [
   "dateChecks",
   "authenticity",
 ] as const;
-const CATEGORY_LABELS: Record<string, string> = {
+export const CATEGORY_LABELS: Record<string, string> = {
   // Acuant (AssureID) — array plano de tests sin categorías propias, ver validation-detail.ts
   // `pushAcuantDocumentChecks`.
   documentValidation: "Validación de documento",
@@ -35,6 +41,14 @@ function resultTone(result: string): "success" | "muted" | "warning" {
   return "warning";
 }
 
+const TONE_ORDER: Record<"success" | "muted" | "warning", number> = { warning: 0, muted: 1, success: 2 };
+
+/** Ordena poniendo primero lo que amerita revisión (advertencias), luego lo no realizado, y al
+ * final lo correcto — así lo relevante queda visible sin desplazarse por decenas de filas "OK". */
+function sortByTone(items: NormalizedDocumentCheck[]): NormalizedDocumentCheck[] {
+  return [...items].sort((a, b) => TONE_ORDER[resultTone(a.result)] - TONE_ORDER[resultTone(b.result)]);
+}
+
 function ResultIcon({ result }: { result: string }) {
   const tone = resultTone(result);
   if (tone === "success") return <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-label="OK" />;
@@ -43,20 +57,22 @@ function ResultIcon({ result }: { result: string }) {
 }
 
 function ChecksTable({ items }: { items: NormalizedDocumentCheck[] }) {
+  const sorted = sortByTone(items);
   return (
     <div className="overflow-hidden rounded-md border border-border">
       <table className="w-full text-sm">
         <tbody>
-          {items.map((check, index) => {
-            const detail = check.description ?? (check.sources && check.sources.length > 0 ? check.sources.join(" vs ") : null);
+          {sorted.map((check, index) => {
+            const description = translateResultDescription(check.resultDescription);
+            const detail = translateCheckDescription(check.description) ?? (check.sources && check.sources.length > 0 ? check.sources.join(" vs ") : null);
             return (
               <tr key={index} className="border-t border-border first:border-t-0 align-top">
-                <td className="w-1/3 px-3 py-1.5 text-xs font-medium">{check.name}</td>
+                <td className="w-1/3 px-3 py-1.5 text-xs font-medium">{translateCheckName(check.name)}</td>
                 <td className="px-3 py-1.5 text-xs text-muted-foreground">{detail ?? "—"}</td>
                 <td className="px-3 py-1.5">
                   <div className="flex items-center gap-1.5 text-xs">
                     <ResultIcon result={check.result} />
-                    {check.resultDescription ?? check.result}
+                    {description ?? translateResultLabel(check.result)}
                   </div>
                 </td>
               </tr>
@@ -69,13 +85,15 @@ function ChecksTable({ items }: { items: NormalizedDocumentCheck[] }) {
 }
 
 /**
- * Reporte de "Validación de ID" del paso `captureId` (datos cruzados, autenticidad, calidad de
- * imagen, MRZ, fechas) — replica las mismas secciones que ya muestra el Portal FAD, agrupando
- * `documentChecks` por categoría y, cuando aplica (autenticidad/calidad de imagen), por
- * página (1 = frente, 2 = reverso).
+ * Cuerpo de la "Validación de ID": agrupa `documentChecks` por categoría y, cuando aplica
+ * (autenticidad/calidad de imagen), por página (1 = frente, 2 = reverso), traduciendo al español
+ * el vocabulario cerrado confirmado con respuestas reales de FAD (ver `document-check-i18n.ts`) y
+ * mostrando primero lo que amerita revisión. Sin el `Card` exterior, para poder incrustarse tanto
+ * en el reporte fijo (`DocumentChecksReport`) como en un campo de una vista de respuesta
+ * personalizada (`RenderedFieldValue`, `renderType: "DOCUMENT_CHECKS"`).
  */
-export function DocumentChecksReport({ checks }: { checks: NormalizedDocumentCheck[] }) {
-  if (checks.length === 0) return null;
+export function DocumentChecksGroups({ checks }: { checks: NormalizedDocumentCheck[] }) {
+  if (checks.length === 0) return <p className="text-xs text-muted-foreground">Sin datos de validación de documento.</p>;
 
   const byCategory = new Map<string, NormalizedDocumentCheck[]>();
   for (const check of checks) {
@@ -87,36 +105,58 @@ export function DocumentChecksReport({ checks }: { checks: NormalizedDocumentChe
   const categories = [...knownCategories, ...otherCategories];
 
   return (
+    <div className="space-y-6">
+      {categories.map((category) => {
+        const items = byCategory.get(category)!;
+        const warningCount = items.filter((i) => resultTone(i.result) === "warning").length;
+        const pages = [...new Set(items.map((i) => i.page))];
+        const hasPages = pages.some((p) => p !== null);
+        return (
+          <div key={category}>
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-sm font-semibold">{CATEGORY_LABELS[category] ?? category}</p>
+              {warningCount > 0 ? (
+                <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
+                  {warningCount} para revisar
+                </span>
+              ) : null}
+            </div>
+            {hasPages ? (
+              <div className="space-y-3">
+                {pages
+                  .filter((p): p is number => p !== null)
+                  .sort((a, b) => a - b)
+                  .map((page) => (
+                    <div key={page}>
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">Página {page}</p>
+                      <ChecksTable items={items.filter((i) => i.page === page)} />
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <ChecksTable items={items} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Reporte de "Validación de ID" del paso `captureId` (datos cruzados, autenticidad, calidad de
+ * imagen, MRZ, fechas) — replica las mismas secciones que ya muestra el Portal FAD.
+ */
+export function DocumentChecksReport({ checks }: { checks: NormalizedDocumentCheck[] }) {
+  if (checks.length === 0) return null;
+
+  return (
     <Card>
       <CardHeader>
         <CardTitle>Validación de ID</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {categories.map((category) => {
-          const items = byCategory.get(category)!;
-          const pages = [...new Set(items.map((i) => i.page))];
-          const hasPages = pages.some((p) => p !== null);
-          return (
-            <div key={category}>
-              <p className="mb-2 text-sm font-semibold">{CATEGORY_LABELS[category] ?? category}</p>
-              {hasPages ? (
-                <div className="space-y-3">
-                  {pages
-                    .filter((p): p is number => p !== null)
-                    .sort((a, b) => a - b)
-                    .map((page) => (
-                      <div key={page}>
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">Página {page}</p>
-                        <ChecksTable items={items.filter((i) => i.page === page)} />
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <ChecksTable items={items} />
-              )}
-            </div>
-          );
-        })}
+      <CardContent>
+        <DocumentChecksGroups checks={checks} />
       </CardContent>
     </Card>
   );
