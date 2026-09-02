@@ -224,13 +224,27 @@ class FadApiAdapter {
   ): Promise<{ status: number; data: GetValidationStepResponse }> {
     const accessToken = await this.getAccessToken(environment);
     const url = joinUrl(environment.baseUrl, withValidationId(environment.getValidationStepEndpoint, validationId));
+    // `Content-Type` solo tiene sentido cuando hay body (POST); en GET (el método real por
+    // defecto para UATHA, comprobado en la colección Postman) nunca se envía cuerpo, así que
+    // declarar un content-type ahí es semánticamente incorrecto y en algunos gateways/WAF puede
+    // provocar que la petición se rechace o se responda con una página de error en vez de JSON.
+    const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
+    if (environment.getValidationStepHttpMethod === "POST") headers["Content-Type"] = "application/json";
     const response = await this.fetchWithRetry(environment, url, {
       method: environment.getValidationStepHttpMethod,
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      headers,
     });
     const json = await this.safeJson(response);
     const parsed = GetValidationStepResponseSchema.safeParse(json);
     if (!parsed.success) {
+      logger.warn("getValidationStep devolvió un cuerpo que no cumple el contrato esperado", {
+        environmentId: environment.id,
+        url,
+        method: environment.getValidationStepHttpMethod,
+        status: response.status,
+        zodIssues: parsed.error.issues,
+        body: JSON.stringify(json).slice(0, 2000),
+      });
       throw AppError.upstream("La respuesta de consulta de pasos de FAD no tiene el formato esperado", {
         status: response.status,
       });
@@ -251,8 +265,25 @@ class FadApiAdapter {
     const json = await this.safeJson(response);
     const parsed = GetValidationDataResponseSchema.safeParse(json);
     if (!parsed.success) {
+      logger.warn("getValidationData devolvió un cuerpo que no cumple el contrato esperado", {
+        environmentId: environment.id,
+        url,
+        status: response.status,
+        zodIssues: parsed.error.issues,
+        body: JSON.stringify(json).slice(0, 2000),
+      });
       throw AppError.upstream("La respuesta de información detallada de FAD no tiene el formato esperado", {
         status: response.status,
+      });
+    }
+    if (parsed.data.success === false) {
+      logger.warn("getValidationData respondió success:false", {
+        environmentId: environment.id,
+        url,
+        validationId,
+        status: response.status,
+        error: parsed.data.error,
+        code: parsed.data.code,
       });
     }
     return { status: response.status, data: parsed.data };
