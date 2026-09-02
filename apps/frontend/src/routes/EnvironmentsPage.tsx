@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Plus, XCircle } from "lucide-react";
+import { CheckCircle2, Plus, Upload, X, XCircle } from "lucide-react";
 import { ApiEnvironmentInputSchema, type ApiEnvironmentInput } from "@fad-console/validation-schemas";
 import type { ApiEnvironmentDto } from "@fad-console/shared-types";
 import {
@@ -22,6 +22,7 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { useToast } from "../components/ui/toast";
+import { parsePostmanCollection, type PostmanImportResult } from "../lib/postman-import";
 
 const BLANK: ApiEnvironmentInput = {
   name: "",
@@ -77,6 +78,8 @@ export function EnvironmentsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [importResult, setImportResult] = useState<PostmanImportResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const selected = environments.find((e) => e.id === selectedId) ?? null;
 
   const { register, handleSubmit, reset, setValue, watch, formState } = useForm<ApiEnvironmentInput>({
@@ -87,7 +90,30 @@ export function EnvironmentsPage() {
   useEffect(() => {
     reset(selected ? toFormValues(selected) : BLANK);
     setTestResult(null);
+    setImportResult(null);
   }, [selected, reset]);
+
+  async function handleImportPostmanFile(file: File) {
+    try {
+      const text = await file.text();
+      const result = parsePostmanCollection(JSON.parse(text));
+      for (const [field, value] of Object.entries(result.values) as [keyof ApiEnvironmentInput, never][]) {
+        setValue(field, value, { shouldDirty: true, shouldValidate: true });
+      }
+      setImportResult(result);
+      notify({
+        title: "Colección de Postman importada",
+        description: `${result.matched.length} campo(s) completados desde "${result.collectionName}". Revisa antes de guardar.`,
+        tone: result.warnings.length > 0 ? "warning" : "success",
+      });
+    } catch (error) {
+      notify({
+        title: "No se pudo importar la colección",
+        description: error instanceof Error ? error.message : "Archivo inválido",
+        tone: "error",
+      });
+    }
+  }
 
   async function onSubmit(values: ApiEnvironmentInput) {
     try {
@@ -108,7 +134,28 @@ export function EnvironmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Configuración > Conexiones API" description="Ambientes y credenciales de conexión con FAD." />
+      <PageHeader
+        title="Configuración > Conexiones API"
+        description="Ambientes y credenciales de conexión con FAD."
+        actions={
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImportPostmanFile(file);
+                e.target.value = "";
+              }}
+            />
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-4 w-4" /> Importar colección Postman
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-[280px_1fr] gap-6">
         <div className="space-y-2">
@@ -139,6 +186,47 @@ export function EnvironmentsPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)}>
+          {importResult ? (
+            <div
+              className={`mb-4 rounded-lg border p-4 text-sm ${
+                importResult.warnings.length > 0 ? "border-warning/30 bg-warning/5" : "border-success/30 bg-success/5"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium">
+                  Importado desde &quot;{importResult.collectionName}&quot;: {importResult.matched.length} campo(s)
+                  completado(s). Revisa los datos en las pestañas y guarda para confirmar.
+                </p>
+                <button
+                  type="button"
+                  aria-label="Cerrar aviso de importación"
+                  onClick={() => setImportResult(null)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {importResult.matched.length > 0 ? (
+                <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                  {importResult.matched.map((m) => (
+                    <li key={m.field}>
+                      <span className="font-medium text-foreground">{m.label}:</span>{" "}
+                      <span className="font-mono">{m.field.toLowerCase().includes("password") ? "••••••••" : m.value}</span>{" "}
+                      <span>(de &quot;{m.sourceRequestName}&quot;)</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {importResult.warnings.length > 0 ? (
+                <ul className="mt-2 list-inside list-disc space-y-0.5 text-xs text-warning">
+                  {importResult.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
           <Tabs defaultValue="general">
             <TabsList>
               <TabsTrigger value="general">Datos generales</TabsTrigger>
