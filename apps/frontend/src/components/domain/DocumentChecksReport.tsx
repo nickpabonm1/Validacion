@@ -6,8 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
  * secciones que ya muestra el Portal FAD (confirmado con una respuesta real de FAD, no
  * documentado en el PDF ni en la colección Postman). Una categoría no reconocida (ninguna
  * observada hasta ahora) se muestra igual, con su propio nombre técnico como título. */
-const CATEGORY_ORDER = ["textCrossChecks", "imageQuality", "mrzCheckDigit", "dateChecks", "authenticity"] as const;
+const CATEGORY_ORDER = [
+  "documentValidation",
+  "textCrossChecks",
+  "imageQuality",
+  "mrzCheckDigit",
+  "dateChecks",
+  "authenticity",
+] as const;
 const CATEGORY_LABELS: Record<string, string> = {
+  // Acuant (AssureID) — array plano de tests sin categorías propias, ver validation-detail.ts
+  // `pushAcuantDocumentChecks`.
+  documentValidation: "Validación de documento",
   textCrossChecks: "Validación de datos cruzados",
   imageQuality: "Calidad de la imagen",
   mrzCheckDigit: "Verificación de dígitos MRZ",

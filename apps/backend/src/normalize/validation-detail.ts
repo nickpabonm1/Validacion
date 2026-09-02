@@ -105,17 +105,50 @@ function pushFlatDocumentChecks(acc: NormalizedDocumentCheck[], category: string
   }
 }
 
-/** `steps.captureId.data.alerts` — confirmado con una respuesta real de FAD (getValidationStep),
- * no documentado en el PDF ni en la colección Postman. Cinco categorías con dos formas
- * distintas: `textCrossChecks`/`mrzCheckDigit`/`dateChecks` son arrays planos de checks;
+/** Forma real de Acuant (AssureID) para `steps.captureId.data.alerts` — confirmada con una
+ * respuesta real de FAD (`features.provider: 2`), distinta y no documentada en el PDF ni en la
+ * colección Postman: un array PLANO de tests (`{Name, Key, Information, Description,
+ * Disposition, Result, Actions, Model, ...}`), sin agrupar por categoría ni por página — a
+ * diferencia de la forma categorizada de otros proveedores. `Result` es numérico (1 = positivo
+ * en todas las respuestas reales revisadas); se traduce a "OK" para reutilizar el mismo criterio
+ * visual (ícono verde) que ya usa la forma categorizada, y se preserva el número tal cual como
+ * string para cualquier otro valor — nunca se asume qué significa un código no observado. */
+function pushAcuantDocumentChecks(acc: NormalizedDocumentCheck[], items: unknown): void {
+  if (!Array.isArray(items)) return;
+  for (const item of items) {
+    const record = asRecord(item);
+    const name = typeof record.Name === "string" ? record.Name : typeof record.Key === "string" ? record.Key : null;
+    if (!name) continue;
+    const result = record.Result;
+    acc.push({
+      category: "documentValidation",
+      page: null,
+      name,
+      description: typeof record.Information === "string" ? record.Information : null,
+      result: result === 1 ? "OK" : result !== undefined && result !== null ? String(result) : "UNKNOWN",
+      resultDescription: typeof record.Disposition === "string" ? record.Disposition : null,
+      sources: null,
+    });
+  }
+}
+
+/** `steps.captureId.data.alerts` — confirmado con respuestas reales de FAD (getValidationStep),
+ * no documentado en el PDF ni en la colección Postman. Dos formas completamente distintas según
+ * el proveedor: Acuant (`features.provider: 2`) devuelve un array plano de tests AssureID (ver
+ * `pushAcuantDocumentChecks`); otros proveedores devuelven un objeto con 5 categorías en dos
+ * formas: `textCrossChecks`/`mrzCheckDigit`/`dateChecks` son arrays planos de checks;
  * `authenticity`/`imageQuality` son arrays de `{page, checks:[...]}` (agrupados por lado del
  * documento: 1 = frente, 2 = reverso). Se traduce todo a una única lista plana
  * (`NormalizedDocumentCheck[]`) para que el reporte las agrupe por `category`+`page` sin tener
- * que conocer esta diferencia de forma. Nunca lanza: una categoría con forma inesperada
- * simplemente no aporta filas, no rompe el resto. */
+ * que conocer esta diferencia de forma. Nunca lanza: una forma inesperada simplemente no aporta
+ * filas, no rompe el resto. */
 function extractDocumentChecks(alertsRaw: unknown): NormalizedDocumentCheck[] {
-  const alerts = asRecord(alertsRaw);
   const checks: NormalizedDocumentCheck[] = [];
+  if (Array.isArray(alertsRaw)) {
+    pushAcuantDocumentChecks(checks, alertsRaw);
+    return checks;
+  }
+  const alerts = asRecord(alertsRaw);
   pushFlatDocumentChecks(checks, "textCrossChecks", alerts.textCrossChecks, null);
   pushFlatDocumentChecks(checks, "mrzCheckDigit", alerts.mrzCheckDigit, null);
   pushFlatDocumentChecks(checks, "dateChecks", alerts.dateChecks, null);
