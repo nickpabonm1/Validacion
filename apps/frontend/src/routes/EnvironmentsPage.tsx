@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Plus, Upload, X, XCircle } from "lucide-react";
+import { CheckCircle2, Globe, Plus, Smartphone, Upload, X, XCircle } from "lucide-react";
 import { ApiEnvironmentInputSchema, type ApiEnvironmentInput } from "@fad-console/validation-schemas";
-import type { ApiEnvironmentDto } from "@fad-console/shared-types";
+import type { ApiEnvironmentDto, IntegrationModel } from "@fad-console/shared-types";
 import {
   useEnvironments,
   useCreateEnvironment,
@@ -82,8 +82,13 @@ export function EnvironmentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [importResult, setImportResult] = useState<PostmanImportResult | null>(null);
+  // Al crear un ambiente nuevo, el modelo de integración se elige primero (pantalla separada) y
+  // ya no cambia: API by-steps y Web SDK son flujos distintos con pestañas distintas, no un
+  // interruptor dentro del mismo formulario (ver aviso del usuario: "no deben estar juntos").
+  const [newEnvModel, setNewEnvModel] = useState<IntegrationModel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selected = environments.find((e) => e.id === selectedId) ?? null;
+  const activeModel: IntegrationModel | null = selected ? selected.integrationModel : newEnvModel;
 
   const { register, handleSubmit, reset, setValue, watch, formState } = useForm<ApiEnvironmentInput>({
     resolver: zodResolver(ApiEnvironmentInputSchema),
@@ -94,7 +99,13 @@ export function EnvironmentsPage() {
     reset(selected ? toFormValues(selected) : BLANK);
     setTestResult(null);
     setImportResult(null);
+    setNewEnvModel(null);
   }, [selected, reset]);
+
+  function chooseNewEnvModel(model: IntegrationModel) {
+    setNewEnvModel(model);
+    setValue("integrationModel", model, { shouldDirty: true });
+  }
 
   async function handleImportPostmanFile(file: File) {
     try {
@@ -188,13 +199,54 @@ export function EnvironmentsPage() {
           )}
         </div>
 
+        {!selected && !newEnvModel ? (
+          <Card>
+            <CardContent className="space-y-4 p-6">
+              <div>
+                <h2 className="text-sm font-semibold">¿Qué modelo de integración vas a configurar?</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Cada ambiente usa un solo modelo. Elige uno para ver únicamente las pestañas que aplican.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => chooseNewEnvModel("API_BY_STEPS")}
+                  className="flex items-start gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:border-primary hover:bg-muted"
+                >
+                  <Globe className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <span>
+                    <span className="block font-medium">API REST (by-steps)</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      FAD aloja el proceso completo. Esta consola lo configura, lanza y monitorea paso a paso.
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => chooseNewEnvModel("WEB_SDK")}
+                  className="flex items-start gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:border-primary hover:bg-muted"
+                >
+                  <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <span>
+                    <span className="block font-medium">Web SDK</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      La captura de documento (Acuant) y prueba de vida (Facetec) corren embebidas en el navegador,
+                      orquestadas por esta consola.
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
         <Tabs defaultValue="general">
           <TabsList>
             <TabsTrigger value="general">Datos generales</TabsTrigger>
             <TabsTrigger value="auth">Autenticación OAuth</TabsTrigger>
             <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
-            <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
-            <TabsTrigger value="websdk">Web SDK</TabsTrigger>
+            {activeModel === "API_BY_STEPS" ? <TabsTrigger value="webhooks">Webhooks</TabsTrigger> : null}
+            {activeModel === "WEB_SDK" ? <TabsTrigger value="websdk">Web SDK</TabsTrigger> : null}
           </TabsList>
 
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -264,16 +316,24 @@ export function EnvironmentsPage() {
                   <Field label="Reintentos máximos" htmlFor="maxRetries">
                     <Input id="maxRetries" type="number" {...register("maxRetries", { valueAsNumber: true })} />
                   </Field>
-                  <Field
-                    label="Modelo de integración"
-                    htmlFor="integrationModel"
-                    hint="API by-steps: FAD aloja el proceso. Web SDK: la captura (Acuant/Facetec) corre en esta consola — configúrala en la pestaña «Web SDK»."
-                  >
-                    <Select id="integrationModel" {...register("integrationModel")}>
-                      <option value="API_BY_STEPS">API REST (by-steps)</option>
-                      <option value="WEB_SDK">Web SDK</option>
-                    </Select>
-                  </Field>
+                  <div className="space-y-1.5">
+                    <span className="text-sm font-medium">Modelo de integración</span>
+                    <div className="flex items-center gap-2">
+                      <Badge tone="info">{activeModel === "WEB_SDK" ? "Web SDK" : "API REST (by-steps)"}</Badge>
+                      {!selected ? (
+                        <button
+                          type="button"
+                          onClick={() => setNewEnvModel(null)}
+                          className="text-xs text-muted-foreground underline hover:text-foreground"
+                        >
+                          Cambiar
+                        </button>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Fijo desde la creación: cada ambiente usa un solo modelo, no se puede cambiar después.
+                    </p>
+                  </div>
                   <InlineSwitchField
                     label="Ambiente activo"
                     checked={values.active}
@@ -361,40 +421,49 @@ export function EnvironmentsPage() {
             <TabsContent value="endpoints">
               <Card>
                 <CardContent className="grid gap-4 p-5">
-                  <Field label="Endpoint de autenticación" htmlFor="authTokenEndpoint">
+                  <Field
+                    label="Endpoint de autenticación"
+                    htmlFor="authTokenEndpoint"
+                    hint={activeModel === "WEB_SDK" ? "Compartido: el flujo Web SDK también obtiene su access_token aquí." : undefined}
+                  >
                     <Input id="authTokenEndpoint" {...register("authTokenEndpoint")} />
                   </Field>
-                  <Field label="Endpoint crear validación" htmlFor="createValidationEndpoint">
-                    <Input id="createValidationEndpoint" {...register("createValidationEndpoint")} />
-                  </Field>
-                  <Field label="Endpoint guardar paso" htmlFor="saveValidationStepEndpoint">
-                    <Input id="saveValidationStepEndpoint" {...register("saveValidationStepEndpoint")} />
-                  </Field>
-                  <div className="grid grid-cols-[1fr_140px] gap-3">
-                    <Field label="Endpoint consultar pasos" htmlFor="getValidationStepEndpoint">
-                      <Input id="getValidationStepEndpoint" {...register("getValidationStepEndpoint")} />
-                    </Field>
-                    <Field label="Método HTTP" htmlFor="getValidationStepHttpMethod">
-                      <Select id="getValidationStepHttpMethod" {...register("getValidationStepHttpMethod")}>
-                        <option value="GET">GET</option>
-                        <option value="POST">POST</option>
-                      </Select>
-                    </Field>
-                  </div>
-                  <Field label="Endpoint consultar información detallada" htmlFor="getValidationDataEndpoint">
-                    <Input id="getValidationDataEndpoint" {...register("getValidationDataEndpoint")} />
-                  </Field>
-                  <Field
-                    label="Plantilla de URL de lanzamiento (opcional)"
-                    htmlFor="launchUrlTemplate"
-                    hint="Admite {validationId}, {key}, {vector}. Vacío por defecto — nunca se infiere."
-                  >
-                    <Input id="launchUrlTemplate" {...register("launchUrlTemplate")} />
-                  </Field>
+                  {activeModel === "API_BY_STEPS" ? (
+                    <>
+                      <Field label="Endpoint crear validación" htmlFor="createValidationEndpoint">
+                        <Input id="createValidationEndpoint" {...register("createValidationEndpoint")} />
+                      </Field>
+                      <Field label="Endpoint guardar paso" htmlFor="saveValidationStepEndpoint">
+                        <Input id="saveValidationStepEndpoint" {...register("saveValidationStepEndpoint")} />
+                      </Field>
+                      <div className="grid grid-cols-[1fr_140px] gap-3">
+                        <Field label="Endpoint consultar pasos" htmlFor="getValidationStepEndpoint">
+                          <Input id="getValidationStepEndpoint" {...register("getValidationStepEndpoint")} />
+                        </Field>
+                        <Field label="Método HTTP" htmlFor="getValidationStepHttpMethod">
+                          <Select id="getValidationStepHttpMethod" {...register("getValidationStepHttpMethod")}>
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                          </Select>
+                        </Field>
+                      </div>
+                      <Field label="Endpoint consultar información detallada" htmlFor="getValidationDataEndpoint">
+                        <Input id="getValidationDataEndpoint" {...register("getValidationDataEndpoint")} />
+                      </Field>
+                      <Field
+                        label="Plantilla de URL de lanzamiento (opcional)"
+                        htmlFor="launchUrlTemplate"
+                        hint="Admite {validationId}, {key}, {vector}. Vacío por defecto — nunca se infiere."
+                      >
+                        <Input id="launchUrlTemplate" {...register("launchUrlTemplate")} />
+                      </Field>
+                    </>
+                  ) : null}
                 </CardContent>
               </Card>
             </TabsContent>
 
+            {activeModel === "API_BY_STEPS" ? (
             <TabsContent value="webhooks">
               <Card>
                 <CardContent className="grid gap-4 p-5 md:grid-cols-2">
@@ -425,6 +494,7 @@ export function EnvironmentsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+            ) : null}
 
           <div className="mt-4 flex justify-between">
             {selected ? (
@@ -449,10 +519,13 @@ export function EnvironmentsPage() {
           </div>
           </form>
 
+          {activeModel === "WEB_SDK" ? (
           <TabsContent value="websdk">
             <WebSdkConfigForm environmentId={selected?.id ?? null} />
           </TabsContent>
+          ) : null}
         </Tabs>
+        )}
       </div>
 
       {!isLoading && environments.length === 0 ? (
