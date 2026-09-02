@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Upload } from "lucide-react";
 import { WebSdkConfigInputSchema, DEFAULT_ONBOARDING_MESSAGES, type WebSdkConfigInput } from "@fad-console/validation-schemas";
 import type { WebSdkConfigDto } from "@fad-console/shared-types";
 import {
@@ -8,6 +9,7 @@ import {
   useUpdateWebSdkConfig,
   useClearWebSdkCredential,
 } from "../../features/environments/useEnvironments";
+import { parseWebSdkConfigImport } from "../../lib/websdk-config-import";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input, Textarea } from "../ui/input";
 import { Select } from "../ui/select";
@@ -103,6 +105,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
   const [facetecMiddlewareText, setFacetecMiddlewareText] = useState("{}");
   const [facetecConfigurationText, setFacetecConfigurationText] = useState("{}");
   const [productionKeyTextJson, setProductionKeyTextJson] = useState("");
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const values = config ? toFormValues(config) : BLANK;
@@ -123,6 +126,40 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
   // Vinculado a una constante para que TypeScript conserve el tipo `string` (no `string | null`)
   // dentro de las funciones anidadas de más abajo.
   const envId = environmentId;
+
+  /** Importa un archivo JSON de configuración Web SDK (ver docs/examples/websdk-config.example.json):
+   * mismo shape que este formulario. Solo aplica los campos que el archivo trae explícitamente —
+   * el resto del formulario queda intacto. Nunca se persiste hasta que el operador pulsa
+   * «Guardar configuración Web SDK». */
+  async function handleImportConfigFile(file: File) {
+    try {
+      const text = await file.text();
+      const raw = JSON.parse(text);
+      const result = parseWebSdkConfigImport(raw);
+
+      for (const [key, value] of Object.entries(result.values) as [keyof WebSdkConfigInput, never][]) {
+        if (key === "acuantConfiguration") setAcuantConfigurationText(JSON.stringify(value, null, 2));
+        else if (key === "facetecMiddleware") setFacetecMiddlewareText(JSON.stringify(value, null, 2));
+        else if (key === "facetecConfiguration") setFacetecConfigurationText(JSON.stringify(value, null, 2));
+        else if (key === "facetecProductionKeyText") setProductionKeyTextJson(JSON.stringify(value));
+        else setValue(key, value, { shouldDirty: true, shouldValidate: true });
+      }
+
+      notify({
+        title: "Configuración Web SDK importada",
+        description:
+          `${result.matched.length} campo(s) completados desde «${file.name}». Revisa antes de guardar.` +
+          (result.warnings.length > 0 ? ` ${result.warnings.join(" ")}` : ""),
+        tone: result.warnings.length > 0 ? "warning" : "success",
+      });
+    } catch (error) {
+      notify({
+        title: "No se pudo importar el archivo",
+        description: error instanceof Error ? error.message : "Archivo inválido",
+        tone: "error",
+      });
+    }
+  }
 
   function parseJsonBlob(label: string, text: string): Record<string, unknown> | null {
     if (!text.trim()) return {};
@@ -166,6 +203,29 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
   }
 
   return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
+        <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+          Sube un archivo JSON con credenciales/endpoints Web SDK en vez de escribirlos a mano — ver{" "}
+          <code className="rounded bg-muted px-1 py-0.5">docs/examples/websdk-config.example.json</code> en el
+          repositorio.
+        </p>
+        <input
+          ref={importFileInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImportConfigFile(file);
+            e.target.value = "";
+          }}
+        />
+        <Button type="button" variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => importFileInputRef.current?.click()}>
+          <Upload className="h-4 w-4" /> Importar configuración (JSON)
+        </Button>
+      </div>
+
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Card>
         <CardHeader>
@@ -409,5 +469,6 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
         </Button>
       </div>
     </form>
+    </div>
   );
 }

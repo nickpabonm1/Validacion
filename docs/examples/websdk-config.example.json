@@ -1,0 +1,38 @@
+{
+  "sdkBaseUrl": "https://uathaapiframe.firmaautografa.com",
+  "sdkRequestId": "mi-app-web",
+
+  "documentCaptureEngine": "ACUANT",
+  "acuantPassiveUsername": "CAMBIAR_USUARIO_ACUANT",
+  "acuantPassivePassword": "CAMBIAR_CONTRASENA_ACUANT",
+  "acuantPassiveSubscriptionId": "CAMBIAR_SUBSCRIPTION_ID_ACUANT",
+  "acuantAcasEndpoint": "https://eu.acas.acuant.net",
+  "acuantLivenessEndpoint": "https://eu.passlive.acuant.net",
+  "acuantAssureidEndpoint": "https://eu.assureid.acuant.net",
+  "acuantParams": {
+    "idData": true,
+    "idPhoto": true,
+    "manualCapture": false
+  },
+  "acuantConfiguration": {},
+
+  "biometricEngine": "FACETEC",
+  "facetecUseMiddleware": true,
+  "facetecMiddleware": {
+    "module": "facetec",
+    "provider": "firmaautografa",
+    "platform": "web",
+    "app": "MI-APP-WEB",
+    "version": "1.0.0"
+  },
+  "facetecConfiguration": {},
+
+  "checkEndpoint": "/naat-check-api/idholo/multiple",
+  "compareFacesEndpoint": "/biometrics/compareFacesPassive",
+  "getValidationKeysEndpoint": "/validation/validations/getValidationKeys",
+  "saveValidationDataEndpoint": "/validation/validations/saveValidationData",
+
+  "checkMaxAttempts": 3,
+  "checkAcceptedRisk": "LOW",
+  "faceMatchMinConfidence": 85
+}

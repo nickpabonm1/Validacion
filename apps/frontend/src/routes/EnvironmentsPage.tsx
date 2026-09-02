@@ -152,22 +152,24 @@ export function EnvironmentsPage() {
         title="Configuración > Conexiones API"
         description="Ambientes y credenciales de conexión con FAD."
         actions={
-          <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleImportPostmanFile(file);
-                e.target.value = "";
-              }}
-            />
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-4 w-4" /> Importar colección Postman
-            </Button>
-          </>
+          activeModel === "WEB_SDK" ? null : (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleImportPostmanFile(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-4 w-4" /> Importar colección Postman
+              </Button>
+            </>
+          )
         }
       />
 

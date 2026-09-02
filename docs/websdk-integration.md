@@ -83,6 +83,12 @@ onboarding funciona sin que el operador escriba nada.
 La parametrización propia de cada SDK (colores/leyendas/vistas de `startAcuant`/`startFacetec`
 vía `acuantConfiguration`/`facetecConfiguration`, qué extraer con `acuantParams`, captura manual
 vs. automática, middleware de Facetec) también se edita ahí mismo — ver `WebSdkConfigForm.tsx`.
+En vez de escribir cada campo a mano, «Importar configuración (JSON)» carga un archivo con el
+mismo shape que `WebSdkConfigInput` (ver `docs/examples/websdk-config.example.json` y
+`apps/frontend/src/lib/websdk-config-import.ts`) — análogo a «Importar colección Postman» de
+Ambientes, pero en el formato propio de esta consola en vez de interpretar una colección ajena.
+Un ambiente Web SDK **no** muestra el botón de Postman (no aplica: ese formato describe
+endpoints REST de FAD, no la configuración de los SDK de Acuant/Facetec).
 
 ## Verificación realizada
 
