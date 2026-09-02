@@ -25,6 +25,30 @@ interface DecryptedCredentials {
   apiPassword: string | null;
 }
 
+/**
+ * El PDF documenta `getValidationStep` como envuelto en `{success, error, code, data}` (igual
+ * que `getValidationData`), pero el método real verificado para UATHA es GET (no POST) y su
+ * respuesta real — confirmada con una respuesta real de FAD, no documentada en el PDF ni en la
+ * colección Postman — NO trae esa envoltura:
+ *   - Éxito: el objeto `data` documentado ({processName, validation, client, steps, ...}) viene
+ *     directamente en la raíz, sin `success`/`error`/`code`.
+ *   - Error: `{code: string, message: string}` (p. ej. `{"code":"InvalidInputParameter",
+ *     "message":"Unable find the validation"}`) — un `code` de texto, no el `code: number` que
+ *     documenta el PDF para el caso envuelto.
+ * Se normaliza aquí a la forma envuelta que ya espera el resto de la app (y que si algún
+ * ambiente configura `getValidationStepHttpMethod: POST` sí podría devolver tal cual, según el
+ * PDF) — nunca se fabrica un campo que FAD no haya devuelto, solo se reacomoda lo ya recibido.
+ */
+function normalizeGetValidationStepBody(json: unknown): unknown {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return json;
+  const record = json as Record<string, unknown>;
+  if ("success" in record) return json; // ya viene envuelto: se deja intacto
+  if (typeof record.code === "string" && typeof record.message === "string") {
+    return { success: false, error: record.message, code: null, data: null };
+  }
+  return { success: true, error: null, code: null, data: record };
+}
+
 function decryptCredentials(environment: ApiEnvironment): DecryptedCredentials {
   return {
     basicAuthUsername: credentialEncryptionService.decryptOrNull(environment.basicAuthUsernameEnc),
@@ -235,7 +259,7 @@ class FadApiAdapter {
       headers,
     });
     const json = await this.safeJson(response);
-    const parsed = GetValidationStepResponseSchema.safeParse(json);
+    const parsed = GetValidationStepResponseSchema.safeParse(normalizeGetValidationStepBody(json));
     if (!parsed.success) {
       logger.warn("getValidationStep devolvió un cuerpo que no cumple el contrato esperado", {
         environmentId: environment.id,

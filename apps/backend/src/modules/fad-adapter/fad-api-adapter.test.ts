@@ -151,4 +151,47 @@ describe("FadApiAdapter", () => {
     const environment = buildEnvironment();
     await expect(fadApiAdapter.getValidationStep(environment, "abc")).rejects.toThrow(/no tiene el formato esperado/i);
   });
+
+  it(
+    "normaliza la respuesta real de getValidationStep (GET) — sin envoltura {success,data}, el " +
+      "objeto data viene directo en la raíz — confirmado con una respuesta real de FAD",
+    async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, { access_token: "tok", token_type: "bearer", expires_in: 3600 }))
+        .mockResolvedValueOnce(
+          jsonResponse(200, {
+            processName: "PRUEBA",
+            validation: { idProcess: "18da8ab4-1983-4443-b746-65b162eef7a1", status: "FINISHED" },
+            client: { name: "PRUEBA", mail: "n1@gmail.com", phone: "20" },
+            steps: { privacyNotice: { order: 1, status: "COMPLETED", show: true } },
+          }),
+        );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const environment = buildEnvironment();
+      const result = await fadApiAdapter.getValidationStep(environment, "18da8ab4-1983-4443-b746-65b162eef7a1");
+      expect(result.data.success).toBe(true);
+      expect(result.data.data?.processName).toBe("PRUEBA");
+      expect(result.data.data?.validation?.status).toBe("FINISHED");
+    },
+  );
+
+  it(
+    "normaliza el error real de getValidationStep (GET) — {code,message} sin `success`, " +
+      "confirmado con una respuesta real de FAD para un validationId inexistente",
+    async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, { access_token: "tok", token_type: "bearer", expires_in: 3600 }))
+        .mockResolvedValueOnce(jsonResponse(400, { code: "InvalidInputParameter", message: "Unable find the validation" }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      const environment = buildEnvironment();
+      const result = await fadApiAdapter.getValidationStep(environment, "no-existe");
+      expect(result.data.success).toBe(false);
+      expect(result.data.error).toBe("Unable find the validation");
+      expect(result.data.data).toBeNull();
+    },
+  );
 });
