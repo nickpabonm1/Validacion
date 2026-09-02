@@ -32,8 +32,9 @@ vistas de respuesta, recepción idempotente de webhooks, RBAC, auditoría y cifr
 5. `npm run dev` — abre <http://localhost:5173> (backend en `:4000`, con proxy automático de `/api`).
 
 Inicie sesión con uno de los usuarios de demostración impresos por `npm run db:seed`
-(`admin@demo.local`, `operador@demo.local`, `auditor@demo.local`, contraseña
-`Demo#Local2026!` — **cámbiela antes de usar la app fuera de su máquina**).
+(`admin@demo.local`, `operador@demo.local`, `auditor@demo.local`, `lanzador@demo.local`,
+contraseña `Demo#Local2026!` para los cuatro — **cámbiela antes de usar la app fuera de su
+máquina**).
 
 Si prefiere no ejecutar el seed, la app funciona igual: al abrirla por primera vez sin usuarios
 se muestra un **asistente de instalación** (crear administrador → configurar conexión opcional →
@@ -98,6 +99,7 @@ Variables opcionales (todas con valor por defecto sensato):
 | `PORT` | `4000` | Puerto del backend |
 | `DATABASE_URL` | `file:./prisma/dev.db` (definido en `prisma/.env`, no sensible) | Conexión de base de datos |
 | `CORS_ORIGIN` | `http://localhost:5173` | Origen permitido en producción |
+| `PUBLIC_APP_URL` | igual a `CORS_ORIGIN` | Origen público usado para armar los enlaces de captura Web SDK compartidos (`/v/:token`) — cámbielo al dominio real en producción |
 | `NODE_ENV` | `development` | `production` activa cookies `secure`, HSTS y sirve el frontend compilado |
 
 ## Docker (alternativo, no obligatorio)
@@ -146,9 +148,10 @@ toda ejecución así queda marcada `isDemo: true`).
 
 | Rol | Puede |
 |---|---|
-| `ADMIN` | Todo: ambientes, secretos, plantillas, vistas, usuarios, catálogos, auditoría |
+| `ADMIN` | Todo: ambientes, secretos, plantillas, vistas, usuarios, catálogos, auditoría, mensajería |
 | `OPERATOR` | Construir plantillas, ejecutar validaciones, consultar resultados — no toca secretos ni usuarios |
 | `AUDITOR` | Solo lectura, ve auditoría y trazabilidad; información sensible siempre enmascarada |
+| `LAUNCHER` | Solo enviar procesos (ejecutar validaciones, generar/enviar enlaces Web SDK) y ver su resultado — sin acceso a ninguna pantalla de configuración |
 
 ## Limitaciones conocidas
 

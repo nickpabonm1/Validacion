@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 
 const DEMO_PASSWORD = "Demo#Local2026!";
 
-async function upsertUser(name: string, email: string, role: "ADMIN" | "OPERATOR" | "AUDITOR") {
+async function upsertUser(name: string, email: string, role: "ADMIN" | "OPERATOR" | "AUDITOR" | "LAUNCHER") {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   return prisma.user.upsert({
     where: { email },
@@ -27,6 +27,7 @@ async function main() {
   const admin = await upsertUser("Admin Demo", "admin@demo.local", "ADMIN");
   await upsertUser("Operador Demo", "operador@demo.local", "OPERATOR");
   await upsertUser("Auditor Demo", "auditor@demo.local", "AUDITOR");
+  await upsertUser("Lanzador Demo", "lanzador@demo.local", "LAUNCHER");
 
   for (const provider of DEFAULT_PROVIDER_CATALOG) {
     await prisma.providerCatalogEntry.upsert({
@@ -373,7 +374,7 @@ async function main() {
   console.log("");
   console.log("Semillas creadas correctamente.");
   console.log("Usuarios de demostración (cambie la contraseña en un entorno real):");
-  console.log("  admin@demo.local / operador@demo.local / auditor@demo.local");
+  console.log("  admin@demo.local / operador@demo.local / auditor@demo.local / lanzador@demo.local");
   console.log(`  contraseña: ${DEMO_PASSWORD}`);
   console.log("");
 }
