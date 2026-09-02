@@ -16,7 +16,7 @@ export const templatesRouter = Router();
 
 templatesRouter.use(requireAuth);
 
-templatesRouter.get("/", async (_req, res, next) => {
+templatesRouter.get("/", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"), async (_req, res, next) => {
   try {
     const templates = await listTemplates();
     res.json({ templates: templates.map(toTemplateDto) });
@@ -25,7 +25,7 @@ templatesRouter.get("/", async (_req, res, next) => {
   }
 });
 
-templatesRouter.get("/:id", async (req, res, next) => {
+templatesRouter.get("/:id", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"), async (req, res, next) => {
   try {
     const template = await getTemplateOrThrow(req.params.id as string);
     res.json({ template: toTemplateDto(template) });

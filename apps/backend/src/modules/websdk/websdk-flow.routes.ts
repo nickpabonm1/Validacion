@@ -9,7 +9,7 @@ export const websdkFlowRouter = Router();
 
 websdkFlowRouter.use(requireAuth);
 
-websdkFlowRouter.post("/start", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
+websdkFlowRouter.post("/start", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (req, res, next) => {
   try {
     const input = WebSdkStartInputSchema.parse(req.body);
     const { executionId, sdkInit } = await startWebSdkExecution(input, req.user?.sub ?? null);
@@ -22,7 +22,7 @@ websdkFlowRouter.post("/start", requireRole("ADMIN", "OPERATOR"), async (req, re
   }
 });
 
-websdkFlowRouter.post("/:id/acuant-result", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
+websdkFlowRouter.post("/:id/acuant-result", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (req, res, next) => {
   try {
     const input = WebSdkAcuantResultInputSchema.parse(req.body);
     const result = await submitAcuantResult(req.params.id as string, input);
@@ -32,7 +32,7 @@ websdkFlowRouter.post("/:id/acuant-result", requireRole("ADMIN", "OPERATOR"), as
   }
 });
 
-websdkFlowRouter.post("/:id/facetec-result", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
+websdkFlowRouter.post("/:id/facetec-result", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (req, res, next) => {
   try {
     const input = WebSdkFacetecResultInputSchema.parse(req.body);
     await submitFacetecResult(req.params.id as string, input);
@@ -42,7 +42,7 @@ websdkFlowRouter.post("/:id/facetec-result", requireRole("ADMIN", "OPERATOR"), a
   }
 });
 
-websdkFlowRouter.post("/:id/complete", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
+websdkFlowRouter.post("/:id/complete", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (req, res, next) => {
   try {
     const result = await completeWebSdkExecution(req.params.id as string);
     const execution = await getExecutionOrThrow(result.executionId);

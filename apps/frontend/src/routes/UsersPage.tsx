@@ -73,6 +73,7 @@ export function UsersPage() {
                     <option value="ADMIN">ADMIN</option>
                     <option value="OPERATOR">OPERATOR</option>
                     <option value="AUDITOR">AUDITOR</option>
+                    <option value="LAUNCHER">LAUNCHER (solo enviar procesos)</option>
                   </Select>
                 </Field>
                 {formState.errors.root ? <p className="text-xs text-destructive">{formState.errors.root.message}</p> : null}

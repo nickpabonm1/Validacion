@@ -1,4 +1,7 @@
-export const USER_ROLES = ["ADMIN", "OPERATOR", "AUDITOR"] as const;
+/** LAUNCHER: rol restringido de "solo enviar procesos" — puede crear ejecuciones (API-by-steps o
+ * Web SDK) y ver su resultado, pero no tiene acceso a ninguna pantalla de configuración
+ * (Ambientes, Plantillas, Constructor, Webhooks, Catálogos, Usuarios, Auditoría, Configuración). */
+export const USER_ROLES = ["ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const ENVIRONMENT_TYPES = ["UATHA", "QA", "PRODUCTION"] as const;
@@ -104,5 +107,6 @@ export const AUDIT_ACTIONS = [
   "QUERY_VALIDATION",
   "WEBHOOK_RECEIVED",
   "EXPORT",
+  "SHARE_LINK_SENT",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

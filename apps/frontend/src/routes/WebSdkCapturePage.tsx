@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Fingerprint, IdCard, Loader2, RefreshCcw, XCircle } from "lucide-react";
-import type { WebSdkSessionInitDto, WebSdkOnboardingMessagesDto } from "@fad-console/shared-types";
+import { CheckCircle2, Fingerprint, IdCard, Loader2, Mail, RefreshCcw, Smartphone, User, XCircle } from "lucide-react";
+import type { WebSdkSessionInitDto, WebSdkOnboardingMessagesDto, WebSdkShareLinkDto } from "@fad-console/shared-types";
 import { DEFAULT_ONBOARDING_MESSAGES } from "@fad-console/validation-schemas";
 import type { WebSdkAcuantResultInput, WebSdkFacetecResultInput } from "@fad-console/validation-schemas";
 import { useEnvironments, useWebSdkConfig } from "../features/environments/useEnvironments";
 import { useStartWebSdk, useSubmitAcuantResult, useSubmitFacetecResult, useCompleteWebSdk } from "../features/websdk/useWebSdk";
+import { useCreateShareLink, useSendShareLink } from "../features/websdk/useWebSdkShare";
 import { runAcuantCapture, runFacetecCapture, describeSdkError } from "../lib/fad-sdk-client";
 import { PageHeader, EmptyState, Spinner } from "../components/ui/misc";
 import { Card, CardContent } from "../components/ui/card";
@@ -13,9 +14,11 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Field } from "../builder/editors/Field";
 import { Badge } from "../components/ui/badge";
+import { ShareLinkPanel } from "../components/domain/ShareLinkPanel";
 import { useToast } from "../components/ui/toast";
 
-type Phase = "setup" | "document" | "liveness" | "completing" | "done" | "blocked";
+type Phase = "setup" | "document" | "liveness" | "completing" | "done" | "blocked" | "shared";
+type CaptureMode = "self" | "share";
 
 /** Onboarding sencillo de cara al cliente: cada paso muestra el título/texto configurado por el
  * operador en Ambientes → Web SDK → «Mensajes del onboarding» (nunca texto embebido en el
@@ -31,8 +34,11 @@ export function WebSdkCapturePage() {
   const submitAcuant = useSubmitAcuantResult();
   const submitFacetec = useSubmitFacetecResult();
   const completeSdk = useCompleteWebSdk();
+  const createShareLink = useCreateShareLink();
+  const sendShareLink = useSendShareLink();
 
   const [phase, setPhase] = useState<Phase>("setup");
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("self");
   const [environmentId, setEnvironmentId] = useState(searchParams.get("environmentId") ?? "");
   const [client, setClient] = useState({ name: "", mail: "", phone: "" });
   const [sdkInit, setSdkInit] = useState<WebSdkSessionInitDto | null>(null);
@@ -41,6 +47,8 @@ export function WebSdkCapturePage() {
   const [checkStatus, setCheckStatus] = useState<{ attemptsUsed: number; attemptsMax: number; risk: string } | null>(null);
   const [acuantResult, setAcuantResult] = useState<WebSdkAcuantResultInput | null>(null);
   const [facetecResult, setFacetecResult] = useState<WebSdkFacetecResultInput | null>(null);
+  const [shareLink, setShareLink] = useState<WebSdkShareLinkDto | null>(null);
+  const [emailDestination, setEmailDestination] = useState("");
 
   const { data: webSdkConfig } = useWebSdkConfig(environmentId || undefined);
   const messages: WebSdkOnboardingMessagesDto = webSdkConfig?.onboardingMessages ?? DEFAULT_ONBOARDING_MESSAGES;
@@ -58,6 +66,34 @@ export function WebSdkCapturePage() {
       notify({ title: "No se pudo iniciar la sesión Web SDK", description: (e as Error).message, tone: "error" });
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Modo "enviar al cliente": crea el enlace compartible (QR/correo/WhatsApp) en vez de arrancar
+   * la captura en este navegador — la ejecución se crea recién cuando el cliente abre el enlace
+   * en su propio celular (ver websdk-share.service.ts en el backend). */
+  async function handleCreateShareLink() {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await createShareLink.mutateAsync({ environmentId, client });
+      setShareLink(res.shareLink);
+      setEmailDestination(client.mail);
+      setPhase("shared");
+    } catch (e) {
+      notify({ title: "No se pudo generar el enlace", description: (e as Error).message, tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSendEmail() {
+    if (!shareLink) return;
+    try {
+      await sendShareLink.mutateAsync({ id: shareLink.id, input: { channel: "EMAIL", destination: emailDestination } });
+      notify({ title: "Enlace enviado por correo", description: emailDestination, tone: "success" });
+    } catch (e) {
+      notify({ title: "No se pudo enviar el correo", description: (e as Error).message, tone: "error" });
     }
   }
 
@@ -171,9 +207,76 @@ export function WebSdkCapturePage() {
                 </Field>
               </div>
 
-              <Button disabled={!canStart || busy} onClick={handleStart}>
+              <h2 className="text-sm font-semibold">¿Quién realiza la captura?</h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setCaptureMode("self")}
+                  className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors ${
+                    captureMode === "self" ? "border-primary ring-1 ring-primary" : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <User className="h-4 w-4 shrink-0 text-primary" />
+                  <span>
+                    <span className="block font-medium">Yo mismo, en este equipo</span>
+                    <span className="block text-xs text-muted-foreground">Usa la cámara de este navegador.</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCaptureMode("share")}
+                  className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors ${
+                    captureMode === "share" ? "border-primary ring-1 ring-primary" : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <Smartphone className="h-4 w-4 shrink-0 text-primary" />
+                  <span>
+                    <span className="block font-medium">Enviar al cliente</span>
+                    <span className="block text-xs text-muted-foreground">Genera un enlace por QR, correo o WhatsApp.</span>
+                  </span>
+                </button>
+              </div>
+
+              <Button disabled={!canStart || busy} onClick={captureMode === "self" ? handleStart : handleCreateShareLink}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Iniciar sesión
+                {captureMode === "self" ? "Iniciar sesión" : "Generar enlace"}
+              </Button>
+            </div>
+          ) : null}
+
+          {phase === "shared" && shareLink ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Enlace generado</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Comparte este enlace con {client.name || "el cliente"} para que complete la verificación desde su propio
+                celular. Expira el {new Date(shareLink.expiresAt).toLocaleTimeString()} y solo puede usarse una vez.
+              </p>
+              <ShareLinkPanel url={shareLink.publicUrl ?? ""} processName={shareLink.processName ?? undefined} />
+              <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-4">
+                <div className="min-w-[16rem] flex-1">
+                  <Field label="Enviar por correo" htmlFor="share-email">
+                    <Input
+                      id="share-email"
+                      type="email"
+                      value={emailDestination}
+                      onChange={(e) => setEmailDestination(e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <Button type="button" variant="outline" disabled={!emailDestination || sendShareLink.isPending} onClick={handleSendEmail}>
+                  {sendShareLink.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                  Enviar correo
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                El envío por WhatsApp desde el botón de arriba abre WhatsApp Web/app con el enlace ya redactado. Para envío
+                automático vía la API de WhatsApp Business, configúrala en Configuración &gt; Mensajería.
+              </p>
+              <Button variant="ghost" onClick={() => navigate("/executions")}>
+                Ver validaciones
               </Button>
             </div>
           ) : null}

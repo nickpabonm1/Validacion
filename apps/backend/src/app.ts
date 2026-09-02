@@ -20,6 +20,9 @@ import { settingsRouter } from "./modules/settings/settings.routes";
 import { mediaProxyRouter } from "./modules/media-proxy/media-proxy.routes";
 import { websdkConfigRouter } from "./modules/websdk/websdk-config.routes";
 import { websdkFlowRouter } from "./modules/websdk/websdk-flow.routes";
+import { websdkShareRouter } from "./modules/websdk/websdk-share.routes";
+import { websdkSharePublicRouter } from "./modules/websdk/websdk-share-public.routes";
+import { messagingConfigRouter } from "./modules/messaging/messaging-config.routes";
 import { errorHandler, notFoundHandler } from "./lib/errors";
 
 export function createApp(): express.Express {
@@ -77,6 +80,11 @@ export function createApp(): express.Express {
   app.use("/api/audit", auditRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api/media-proxy", mediaProxyRouter);
+  app.use("/api/websdk-share/links", websdkShareRouter);
+  // Público (sin cookie de sesión): el cliente final abre el enlace compartido en su propio
+  // celular. El `token` opaco de un solo uso es la única credencial (ver websdk-share.service.ts).
+  app.use("/api/public/websdk-share", websdkSharePublicRouter);
+  app.use("/api/messaging-config", messagingConfigRouter);
 
   // El frontend compilado (apps/frontend/dist) se sirve desde el propio backend en producción
   // para simplificar el despliegue a un único proceso Node.

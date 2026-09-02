@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useSystemSettings, useUpsertSetting, useDeleteSetting } from "../features/settings/useSystemSettings";
+import { MessagingConfigForm } from "../components/domain/MessagingConfigForm";
 import { PageHeader, EmptyState, Skeleton } from "../components/ui/misc";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -74,6 +75,16 @@ export function SettingsPage() {
         }
       />
 
+      <div className="mb-6">
+        <h2 className="mb-3 text-sm font-semibold">Mensajería</h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Correo (SMTP) y WhatsApp (Cloud API) usados para enviar el enlace de captura compartido — ver «Nueva
+          ejecución (Web SDK)» → «Enviar al cliente».
+        </p>
+        <MessagingConfigForm />
+      </div>
+
+      <h2 className="mb-3 text-sm font-semibold">Parámetros generales</h2>
       {isLoading ? (
         <Skeleton className="h-40" />
       ) : !settings || settings.length === 0 ? (

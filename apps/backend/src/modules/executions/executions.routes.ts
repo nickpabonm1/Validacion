@@ -45,7 +45,7 @@ executionsRouter.get("/:id", async (req, res, next) => {
   }
 });
 
-executionsRouter.post("/", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
+executionsRouter.post("/", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (req, res, next) => {
   try {
     const input = ExecuteValidationInputSchema.parse(req.body);
     const execution = await createExecution({
@@ -85,7 +85,7 @@ executionsRouter.post("/demo", requireRole("ADMIN", "OPERATOR"), async (req, res
   }
 });
 
-executionsRouter.post("/:id/sync", requireRole("ADMIN", "OPERATOR", "AUDITOR"), async (req, res, next) => {
+executionsRouter.post("/:id/sync", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"), async (req, res, next) => {
   try {
     await syncExecutionStatus(req.params.id as string);
     await logAudit("QUERY_VALIDATION", "ValidationExecution", req.params.id as string, auditContextFrom(req));

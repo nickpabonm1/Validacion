@@ -32,6 +32,9 @@ export const env = {
   appEncryptionKey: requireEnv("APP_ENCRYPTION_KEY"),
   jwtSecret: process.env.JWT_SECRET ?? deriveJwtSecret(),
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
+  /** Origen público que se usa para armar los enlaces de captura compartidos (QR/correo/WhatsApp,
+   * ver websdk-share). Por defecto el mismo origen del frontend en desarrollo. */
+  publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.CORS_ORIGIN ?? "http://localhost:5173",
   cookieSecure: process.env.NODE_ENV === "production",
   repoRoot,
 };

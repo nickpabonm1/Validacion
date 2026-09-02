@@ -65,14 +65,19 @@ async function getExecutionRowOrThrow(executionId: string) {
   return execution;
 }
 
-/** Paso 1: crea la ejecución y arma todo lo que el navegador necesita para arrancar los SDKs de
- * Acuant/Facetec. Nunca se envía al navegador el client_secret OAuth ni el password de la API:
- * el backend obtiene un access_token de corta vida y lo inyecta donde el SDK lo requiera. */
-export async function startWebSdkExecution(
-  input: WebSdkStartInput,
-  userId: string | null,
-): Promise<{ executionId: string; sdkInit: WebSdkSessionInitDto }> {
-  const { environment, config } = await loadEnvironmentAndConfig(input.environmentId);
+type WebSdkConfigRow = Awaited<ReturnType<typeof getWebSdkConfig>>;
+
+/** Arma todo lo que el navegador necesita para arrancar los SDKs de Acuant/Facetec para una
+ * ejecución YA creada. Separado de `startWebSdkExecution` para poder re-generar un `sdkInit`
+ * fresco (access_token nuevo) sin duplicar la ejecución — usado tanto al crearla como al
+ * re-abrir un enlace compartido (ver websdk-share.service.ts). Nunca se envía al navegador el
+ * client_secret OAuth ni el password de la API: el backend obtiene un access_token de corta vida
+ * y lo inyecta donde el SDK lo requiera. */
+async function buildSdkInit(
+  executionId: string,
+  environment: Awaited<ReturnType<typeof getEnvironmentOrThrow>>,
+  config: NonNullable<WebSdkConfigRow>,
+): Promise<WebSdkSessionInitDto> {
   const creds = decryptWebSdkCredentials(config);
 
   if (!creds.acuantPassiveUsername || !creds.acuantPassivePassword || !creds.acuantPassiveSubscriptionId) {
@@ -94,33 +99,8 @@ export async function startWebSdkExecution(
 
   const accessToken = await fadApiAdapter.getAccessToken(environment);
 
-  const templateName = input.templateId
-    ? ((await prisma.validationTemplate.findUnique({ where: { id: input.templateId } }))?.name ?? null)
-    : null;
-
-  const execution = await prisma.validationExecution.create({
-    data: {
-      validationId: null,
-      processName: input.processName ?? templateName ?? "Onboarding Web SDK",
-      environmentId: environment.id,
-      templateId: input.templateId ?? null,
-      requestPayload: toJsonField({ client: input.client, integrationModel: "WEB_SDK" }),
-      responsePayload: null,
-      normalizedResponse: null,
-      rawStatus: null,
-      normalizedStatus: "IN_PROGRESS",
-      result: null,
-      clientNameMasked: maskName(input.client.name),
-      clientEmailMasked: maskEmail(input.client.mail),
-      isDemo: false,
-      startedAt: new Date(),
-      createdById: userId,
-      webSdkState: toJsonField(emptyState()),
-    },
-  });
-
-  const sdkInit: WebSdkSessionInitDto = {
-    executionId: execution.id,
+  return {
+    executionId,
     sdkToken: creds.sdkToken || accessToken,
     sdkEnvironment: environment.environmentType === "PRODUCTION" ? "PROD" : "UATHA",
     sdkBaseUrl: config.sdkBaseUrl,
@@ -155,8 +135,53 @@ export async function startWebSdkExecution(
     },
     checkMaxAttempts: config.checkMaxAttempts,
   };
+}
 
+/** Paso 1: crea la ejecución y arma todo lo que el navegador necesita para arrancar los SDKs de
+ * Acuant/Facetec. */
+export async function startWebSdkExecution(
+  input: WebSdkStartInput,
+  userId: string | null,
+): Promise<{ executionId: string; sdkInit: WebSdkSessionInitDto }> {
+  const { environment, config } = await loadEnvironmentAndConfig(input.environmentId);
+
+  const templateName = input.templateId
+    ? ((await prisma.validationTemplate.findUnique({ where: { id: input.templateId } }))?.name ?? null)
+    : null;
+
+  const execution = await prisma.validationExecution.create({
+    data: {
+      validationId: null,
+      processName: input.processName ?? templateName ?? "Onboarding Web SDK",
+      environmentId: environment.id,
+      templateId: input.templateId ?? null,
+      requestPayload: toJsonField({ client: input.client, integrationModel: "WEB_SDK" }),
+      responsePayload: null,
+      normalizedResponse: null,
+      rawStatus: null,
+      normalizedStatus: "IN_PROGRESS",
+      result: null,
+      clientNameMasked: maskName(input.client.name),
+      clientEmailMasked: maskEmail(input.client.mail),
+      isDemo: false,
+      startedAt: new Date(),
+      createdById: userId,
+      webSdkState: toJsonField(emptyState()),
+    },
+  });
+
+  const sdkInit = await buildSdkInit(execution.id, environment, config);
   return { executionId: execution.id, sdkInit };
+}
+
+/** Re-genera el `sdkInit` (access_token fresco) de una ejecución Web SDK ya creada — usado por el
+ * flujo de enlace compartido cuando el cliente abre `/v/:token` (la ejecución se crea al iniciar
+ * el enlace; ver websdk-share.service.ts). */
+export async function getSdkInitForExecution(executionId: string): Promise<WebSdkSessionInitDto> {
+  const execution = await getExecutionRowOrThrow(executionId);
+  const config = await getWebSdkConfig(execution.environmentId);
+  if (!config) throw AppError.badRequest("Este ambiente no tiene configuración Web SDK.");
+  return buildSdkInit(executionId, execution.environment, config);
 }
 
 interface FadServiceResponse<T> {

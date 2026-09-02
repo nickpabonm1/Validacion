@@ -173,6 +173,52 @@ export interface WebSdkCheckResultDto {
   exhausted: boolean;
 }
 
+/** Enlace de captura Web SDK compartible por QR/correo/WhatsApp (ver websdk-share). El `token`
+ * y `publicUrl` solo se devuelven en la respuesta de creación — nunca se vuelven a exponer
+ * completos después (evita que un listado filtre el bearer del enlace). */
+export interface WebSdkShareLinkDto {
+  id: string;
+  token: string | null;
+  publicUrl: string | null;
+  environmentId: string;
+  environmentName: string;
+  processName: string | null;
+  clientNameMasked: string;
+  status: "PENDING" | "STARTED" | "COMPLETED" | "EXPIRED";
+  executionId: string | null;
+  expiresAt: string;
+  usedAt: string | null;
+  createdAt: string;
+}
+
+/** Info pública mínima que ve el cliente al abrir `/v/:token` — sin PII más allá de su propio
+ * nombre (que él mismo o el operador ya conocían) y sin nada de configuración interna. */
+export interface WebSdkPublicShareInfoDto {
+  status: "PENDING" | "STARTED" | "COMPLETED" | "EXPIRED";
+  environmentName: string;
+  processName: string | null;
+  clientName: string;
+  onboardingMessages: WebSdkOnboardingMessagesDto;
+}
+
+export interface MessagingConfigDto {
+  smtpHost: string | null;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUserConfigured: boolean;
+  smtpPasswordConfigured: boolean;
+  fromAddress: string | null;
+  fromName: string;
+
+  whatsappApiBaseUrl: string;
+  whatsappPhoneNumberId: string | null;
+  whatsappAccessTokenConfigured: boolean;
+  whatsappTemplateName: string | null;
+  whatsappTemplateLanguage: string;
+
+  updatedAt: string;
+}
+
 export interface ValidationExecutionListItemDto {
   id: string;
   validationId: string | null;

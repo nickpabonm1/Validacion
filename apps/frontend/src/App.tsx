@@ -8,6 +8,7 @@ import { BuilderPage } from "./routes/BuilderPage";
 import { TemplatesPage } from "./routes/TemplatesPage";
 import { NewExecutionPage } from "./routes/NewExecutionPage";
 import { WebSdkCapturePage } from "./routes/WebSdkCapturePage";
+import { WebSdkPublicCapturePage } from "./routes/WebSdkPublicCapturePage";
 import { ExecutionsPage } from "./routes/ExecutionsPage";
 import { ExecutionDetailPage } from "./routes/ExecutionDetailPage";
 import { ResponseDesignerPage } from "./routes/ResponseDesignerPage";
@@ -24,12 +25,34 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<SetupWizardPage />} />
+      <Route path="/v/:token" element={<WebSdkPublicCapturePage />} />
 
       <Route element={<RequireAuth />}>
         <Route index element={<DashboardPage />} />
-        <Route path="builder" element={<BuilderPage />} />
-        <Route path="builder/:templateId" element={<BuilderPage />} />
-        <Route path="templates" element={<TemplatesPage />} />
+        <Route
+          path="builder"
+          element={
+            <RequireRole roles={["ADMIN", "OPERATOR"]}>
+              <BuilderPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="builder/:templateId"
+          element={
+            <RequireRole roles={["ADMIN", "OPERATOR"]}>
+              <BuilderPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="templates"
+          element={
+            <RequireRole roles={["ADMIN", "OPERATOR"]}>
+              <TemplatesPage />
+            </RequireRole>
+          }
+        />
         <Route path="executions/new" element={<NewExecutionPage />} />
         <Route path="executions/new-websdk" element={<WebSdkCapturePage />} />
         <Route path="executions" element={<ExecutionsPage />} />
@@ -42,7 +65,14 @@ export function App() {
             </RequireRole>
           }
         />
-        <Route path="webhooks" element={<WebhooksPage />} />
+        <Route
+          path="webhooks"
+          element={
+            <RequireRole roles={["ADMIN", "OPERATOR", "AUDITOR"]}>
+              <WebhooksPage />
+            </RequireRole>
+          }
+        />
         <Route
           path="environments"
           element={

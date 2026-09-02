@@ -21,7 +21,7 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  /// UserRole: ADMIN | OPERATOR | AUDITOR
+  /// UserRole: ADMIN | OPERATOR | AUDITOR | LAUNCHER
   role         String
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -32,14 +32,15 @@ model User {
   executions       ValidationExecution[] @relation("ExecutionCreatedBy")
   auditLogs        AuditLog[]
   updatedSettings  SystemSetting[]
+  shareLinks       WebSdkShareLink[]     @relation("ShareLinkCreatedBy")
 
   @@map("users")
 }
 
 model ApiEnvironment {
-  id   String @id @default(uuid())
-  name String
-  description String?
+  id              String  @id @default(uuid())
+  name            String
+  description     String?
   /// EnvironmentType: UATHA | QA | PRODUCTION
   environmentType String
   baseUrl         String
@@ -48,13 +49,13 @@ model ApiEnvironment {
   maxRetries      Int     @default(2)
 
   // Secretos cifrados (AES-256-GCM vía CredentialEncryptionService). Nunca texto plano.
-  basicAuthUsernameEnc String?
-  basicAuthPasswordEnc String?
-  apiUsernameEnc       String?
-  apiPasswordEnc       String?
-  webhookUsernameEnc   String?
-  webhookPasswordEnc   String?
-  credentialsEncryptionVersion Int @default(1)
+  basicAuthUsernameEnc         String?
+  basicAuthPasswordEnc         String?
+  apiUsernameEnc               String?
+  apiPasswordEnc               String?
+  webhookUsernameEnc           String?
+  webhookPasswordEnc           String?
+  credentialsEncryptionVersion Int     @default(1)
 
   grantType                 String  @default("password")
   passwordIsPreHashed       Boolean @default(false)
@@ -88,6 +89,7 @@ model ApiEnvironment {
   templates    ValidationTemplate[]
   executions   ValidationExecution[]
   webSdkConfig WebSdkConfig?
+  shareLinks   WebSdkShareLink[]
 
   @@map("api_environments")
 }
@@ -99,14 +101,14 @@ model ApiEnvironment {
 /// navegador el client_secret OAuth, el password del usuario API, ni la llave/vector AES.
 /// Ver docs/websdk-integration.md.
 model WebSdkConfig {
-  id            String @id @default(uuid())
-  environmentId String @unique
+  id            String         @id @default(uuid())
+  environmentId String         @unique
   environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
 
   // SDK (iframe) — no son las credenciales OAuth de la API, son propias del "Token generation".
-  sdkBaseUrl    String  @default("https://uathaapiframe.firmaautografa.com")
-  sdkRequestId  String?
-  sdkTokenEnc   String? // opcional: si falta, se usa el access_token OAuth como fallback
+  sdkBaseUrl   String  @default("https://uathaapiframe.firmaautografa.com")
+  sdkRequestId String?
+  sdkTokenEnc  String? // opcional: si falta, se usa el access_token OAuth como fallback
 
   /// DocumentCaptureEngine: ACUANT (único soportado por ahora; Regula queda documentado para el
   /// futuro, ver docs/websdk-integration.md).
@@ -134,9 +136,9 @@ model WebSdkConfig {
   /// JSON serializado: objeto CONFIGURATION de startFacetec (no contiene secretos)
   facetecConfiguration                  String  @default("{}")
 
-  checkEndpoint             String @default("/naat-check-api/idholo/multiple")
-  compareFacesEndpoint      String @default("/biometrics/compareFacesPassive")
-  getValidationKeysEndpoint String @default("/validation/validations/getValidationKeys")
+  checkEndpoint              String @default("/naat-check-api/idholo/multiple")
+  compareFacesEndpoint       String @default("/biometrics/compareFacesPassive")
+  getValidationKeysEndpoint  String @default("/validation/validations/getValidationKeys")
   saveValidationDataEndpoint String @default("/validation/validations/saveValidationData")
 
   checkMaxAttempts       Int    @default(3)
@@ -170,15 +172,15 @@ model ProviderCatalogEntry {
 }
 
 model ValidationTemplate {
-  id            String  @id @default(uuid())
+  id            String          @id @default(uuid())
   name          String
   description   String?
-  version       Int     @default(1)
+  version       Int             @default(1)
   environmentId String?
   environment   ApiEnvironment? @relation(fields: [environmentId], references: [id], onDelete: SetNull)
   /// JSON serializado (ValidationRequestConfig)
   requestConfig String
-  active        Boolean @default(true)
+  active        Boolean         @default(true)
 
   createdById String?
   createdBy   User?   @relation("TemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -195,18 +197,18 @@ model ValidationTemplate {
 }
 
 model ResponseView {
-  id          String  @id @default(uuid())
-  name        String
-  description String?
+  id            String              @id @default(uuid())
+  name          String
+  description   String?
   /// ResponseViewKind: EXECUTIVE | OPERATIVE | TECHNICAL | CUSTOM
-  kind          String @default("CUSTOM")
+  kind          String              @default("CUSTOM")
   /// JSON serializado (ResponseViewConfig)
   configuration String
   templateId    String?
   template      ValidationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isDefault     Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
   @@map("response_views")
 }
@@ -217,18 +219,18 @@ model ValidationExecution {
   processName  String
 
   environmentId String
-  environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  environment   ApiEnvironment      @relation(fields: [environmentId], references: [id], onDelete: Restrict)
   templateId    String?
   template      ValidationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   /// JSON serializado: cuerpo enviado a FAD
-  requestPayload String
+  requestPayload     String
   /// JSON serializado: respuesta cruda de FAD (createValidation)
-  responsePayload String?
+  responsePayload    String?
   /// JSON serializado: última respuesta normalizada (estado/detalle)
   normalizedResponse String?
 
-  rawStatus String?
+  rawStatus        String?
   /// NormalizedValidationStatus
   normalizedStatus String  @default("CREATED")
   result           String?
@@ -258,6 +260,7 @@ model ValidationExecution {
 
   steps         ValidationStepExecution[]
   webhookEvents WebhookEvent[]
+  shareLink     WebSdkShareLink?
 
   @@index([validationId])
   @@index([normalizedStatus])
@@ -265,7 +268,7 @@ model ValidationExecution {
 }
 
 model ValidationStepExecution {
-  id                    String @id @default(uuid())
+  id                    String              @id @default(uuid())
   validationExecutionId String
   validationExecution   ValidationExecution @relation(fields: [validationExecutionId], references: [id], onDelete: Cascade)
 
@@ -311,8 +314,8 @@ model WebhookEvent {
 
   /// WebhookProcessingStatus
   processingStatus String    @default("RECEIVED")
-  processedAt       DateTime?
-  processingError    String?
+  processedAt      DateTime?
+  processingError  String?
 
   uniqueHash String @unique
 
@@ -322,9 +325,9 @@ model WebhookEvent {
 }
 
 model AuditLog {
-  id         String  @id @default(uuid())
+  id         String   @id @default(uuid())
   userId     String?
-  user       User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   /// AuditAction
   action     String
   entityType String?
@@ -341,13 +344,74 @@ model AuditLog {
 }
 
 model SystemSetting {
-  key         String  @id
+  key         String   @id
   value       String?
-  encrypted   Boolean @default(false)
+  encrypted   Boolean  @default(false)
   description String?
   updatedById String?
-  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy   User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
   updatedAt   DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+/// Enlace de captura Web SDK compartible (QR / correo / WhatsApp / copiar enlace): permite que un
+/// operador o el rol LAUNCHER "envíe" un proceso de validación a un cliente final, quien lo abre
+/// en su propio teléfono SIN necesitar una sesión de esta consola (ver
+/// apps/backend/src/modules/websdk/websdk-share.routes.ts, rutas públicas montadas fuera de
+/// `requireAuth`). El `token` es la única credencial: opaco, de un solo uso, con expiración corta.
+/// Nunca se reutiliza el mismo modelo para el modelo API_BY_STEPS (ese usa `launchUrlTemplate`,
+/// que ya es público por diseño de FAD).
+model WebSdkShareLink {
+  id            String         @id @default(uuid())
+  token         String         @unique
+  environmentId String
+  environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  templateId    String?
+  processName   String?
+
+  /// JSON serializado: { name, mail, phone } — mismo shape que WebSdkStartInput.client
+  client String
+
+  /// WebSdkShareLinkStatus: PENDING (creado, no abierto) | STARTED (el cliente lo abrió y ya
+  /// arrancó la ejecución) | COMPLETED (la ejecución terminó) | EXPIRED
+  status String @default("PENDING")
+
+  executionId String?              @unique
+  execution   ValidationExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+
+  createdById String
+  createdBy   User   @relation("ShareLinkCreatedBy", fields: [createdById], references: [id])
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("web_sdk_share_links")
+}
+
+/// Configuración global (no por ambiente) de mensajería saliente para enviar el enlace de
+/// captura Web SDK por correo (SMTP) o WhatsApp (WhatsApp Cloud API de Meta). Fila única
+/// (id = "singleton"). Nunca se fabrica una confirmación de envío: `email.service.ts` /
+/// `whatsapp.service.ts` devuelven exactamente lo que el proveedor respondió.
+model MessagingConfig {
+  id String @id @default("singleton")
+
+  smtpHost        String?
+  smtpPort        Int     @default(587)
+  smtpSecure      Boolean @default(false)
+  smtpUserEnc     String?
+  smtpPasswordEnc String?
+  fromAddress     String?
+  fromName        String  @default("FAD Biometrics Console")
+
+  whatsappApiBaseUrl       String  @default("https://graph.facebook.com/v20.0")
+  whatsappPhoneNumberId    String?
+  whatsappAccessTokenEnc   String?
+  whatsappTemplateName     String?
+  whatsappTemplateLanguage String  @default("es")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("messaging_config")
 }
