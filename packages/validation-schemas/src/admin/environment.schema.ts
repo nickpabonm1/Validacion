@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ENVIRONMENT_TYPES, HTTP_METHODS } from "@fad-console/shared-types";
+import { ENVIRONMENT_TYPES, HTTP_METHODS, INTEGRATION_MODELS } from "@fad-console/shared-types";
 
 const SECURE_URL = z
   .string()
@@ -44,6 +44,8 @@ export const ApiEnvironmentInputSchema = z.object({
   webhookPassword: z.string().max(500).optional(),
   webhookUrl: z.string().max(500).optional().nullable(),
   webhookActive: z.boolean().default(false),
+
+  integrationModel: z.enum(INTEGRATION_MODELS).default("API_BY_STEPS"),
 });
 export type ApiEnvironmentInput = z.infer<typeof ApiEnvironmentInputSchema>;
 

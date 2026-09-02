@@ -76,13 +76,78 @@ model ApiEnvironment {
   connectionStatus String    @default("NOT_CONFIGURED")
   lastTestedAt     DateTime?
 
+  /// IntegrationModel: API_BY_STEPS | WEB_SDK (ver docs/technical-analysis.md — "Selección del
+  /// Modelo de Integración"). API_BY_STEPS es el modelo original (FAD aloja el proceso, esta
+  /// consola solo lo configura/monitorea). WEB_SDK habilita el flujo de captura embebida
+  /// (Acuant + Facetec vía @fad-producto/fad-sdk) documentado en `webSdkConfig`.
+  integrationModel String @default("API_BY_STEPS")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  templates  ValidationTemplate[]
-  executions ValidationExecution[]
+  templates    ValidationTemplate[]
+  executions   ValidationExecution[]
+  webSdkConfig WebSdkConfig?
 
   @@map("api_environments")
+}
+
+/// Configuración del modelo de integración "Web SDK": captura de documento (Acuant) y prueba de
+/// vida (Facetec) ejecutadas en el navegador del cliente vía @fad-producto/fad-sdk (iframe),
+/// mientras que la autenticación OAuth, NAAT-CHECK, compareFacesPassive y saveValidationData
+/// (empaquetado .TAR + cifrado AES-256-CBC) se orquestan en nuestro backend — nunca se envían al
+/// navegador el client_secret OAuth, el password del usuario API, ni la llave/vector AES.
+/// Ver docs/websdk-integration.md.
+model WebSdkConfig {
+  id            String @id @default(uuid())
+  environmentId String @unique
+  environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  // SDK (iframe) — no son las credenciales OAuth de la API, son propias del "Token generation".
+  sdkBaseUrl    String  @default("https://uathaapiframe.firmaautografa.com")
+  sdkRequestId  String?
+  sdkTokenEnc   String? // opcional: si falta, se usa el access_token OAuth como fallback
+
+  /// DocumentCaptureEngine: ACUANT (único soportado por ahora; Regula queda documentado para el
+  /// futuro, ver docs/websdk-integration.md).
+  documentCaptureEngine          String  @default("ACUANT")
+  acuantPassiveUsernameEnc       String?
+  acuantPassivePasswordEnc       String?
+  acuantPassiveSubscriptionIdEnc String?
+  acuantAcasEndpoint             String  @default("https://eu.acas.acuant.net")
+  acuantLivenessEndpoint         String  @default("https://eu.passlive.acuant.net")
+  acuantAssureidEndpoint         String  @default("https://eu.assureid.acuant.net")
+  /// JSON serializado: { idData, idPhoto, manualCapture }
+  acuantParams                   String  @default("{\"idData\":true,\"idPhoto\":true,\"manualCapture\":false}")
+  /// JSON serializado: objeto CONFIGURATION de startAcuant (no contiene secretos)
+  acuantConfiguration            String  @default("{}")
+
+  /// BiometricEngine: FACETEC (único soportado)
+  biometricEngine                       String  @default("FACETEC")
+  facetecUseMiddleware                  Boolean @default(true)
+  /// JSON serializado: descriptor del middleware FAD (module/provider/platform/app/version/...)
+  facetecMiddleware                     String  @default("{}")
+  facetecDeviceKeyIdentifierEnc         String?
+  facetecPublicFaceScanEncryptionKeyEnc String?
+  /// JSON cifrado: { domains, expiryDate, key } (productionKeyText)
+  facetecProductionKeyTextEnc           String?
+  /// JSON serializado: objeto CONFIGURATION de startFacetec (no contiene secretos)
+  facetecConfiguration                  String  @default("{}")
+
+  checkEndpoint             String @default("/naat-check-api/idholo/multiple")
+  compareFacesEndpoint      String @default("/biometrics/compareFacesPassive")
+  getValidationKeysEndpoint String @default("/validation/validations/getValidationKeys")
+  saveValidationDataEndpoint String @default("/validation/validations/saveValidationData")
+
+  checkMaxAttempts       Int    @default(3)
+  /// RiskLevel aceptado para continuar: LOW | MEDIUM | HIGH
+  checkAcceptedRisk      String @default("LOW")
+  faceMatchMinConfidence Float  @default(85)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("web_sdk_configs")
 }
 
 model ProviderCatalogEntry {
@@ -169,6 +234,11 @@ model ValidationExecution {
 
   keyEncrypted    String?
   vectorEncrypted String?
+
+  /// JSON serializado: estado transitorio del flujo Web SDK mientras se ejecuta (resultado de
+  /// Acuant/Facetec, intentos de NAAT-CHECK, resultado de compareFacesPassive). Se limpia una vez
+  /// completado (ver módulo `websdk`). Null en ejecuciones API_BY_STEPS.
+  webSdkState String?
 
   isDemo Boolean @default(false)
 

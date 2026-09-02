@@ -62,6 +62,25 @@ async function main() {
     },
   });
 
+  await prisma.apiEnvironment.upsert({
+    where: { id: "demo-environment-websdk" },
+    update: {},
+    create: {
+      id: "demo-environment-websdk",
+      name: "Demo Web SDK (sin credenciales)",
+      description:
+        "Ambiente de demostración del modelo de integración Web SDK: la captura de documento " +
+        "(Acuant) y la prueba de vida (Facetec) corren en el navegador. Requiere que un " +
+        "administrador complete la pestaña «Web SDK» en Ambientes (credenciales Acuant/Facetec) " +
+        "antes de poder iniciar una sesión real.",
+      environmentType: "UATHA",
+      baseUrl: "https://demo.example.invalid",
+      integrationModel: "WEB_SDK",
+      active: true,
+      connectionStatus: "NOT_CONFIGURED",
+    },
+  });
+
   const basicTemplateConfig = {
     processName: "Validación básica Colombia (DEMO)",
     validity: 5,

@@ -42,7 +42,10 @@ function decryptCredentials(environment: ApiEnvironment): DecryptedCredentials {
  * pasos (método configurable) y consulta detallada.
  */
 class FadApiAdapter {
-  private async fetchWithRetry(
+  /** Público: reutilizado por el módulo `websdk` (CHECK, compareFacesPassive,
+   * getValidationKeys, saveValidationData) para respetar el mismo timeout/reintentos del
+   * ambiente sin duplicar la lógica de red. */
+  async fetchWithRetry(
     environment: ApiEnvironment,
     url: string,
     init: RequestInit,
@@ -130,7 +133,8 @@ class FadApiAdapter {
     return "credenciales inválidas o servicio no disponible";
   }
 
-  private async safeJson(response: Response): Promise<unknown> {
+  /** Público: reutilizado por el módulo `websdk`. */
+  async safeJson(response: Response): Promise<unknown> {
     const text = await response.text();
     if (!text) return null;
     try {
@@ -140,7 +144,9 @@ class FadApiAdapter {
     }
   }
 
-  private async getAccessToken(environment: ApiEnvironment): Promise<string> {
+  /** Público: reutilizado por el módulo `websdk` para obtener un access_token (con cache y
+   * renovación) sin duplicar la lógica de autenticación OAuth. */
+  async getAccessToken(environment: ApiEnvironment): Promise<string> {
     const cached = getCachedToken(environment.id, environment.tokenRefreshMarginSeconds);
     if (cached) return cached.accessToken;
     const fresh = await this.authenticate(environment);

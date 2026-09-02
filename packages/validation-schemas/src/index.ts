@@ -11,6 +11,8 @@ export * from "./request-builder/steps.schema";
 export * from "./request-builder/template.schema";
 
 export * from "./admin/environment.schema";
+export * from "./admin/websdk-config.schema";
+export * from "./websdk/websdk-flow.schema";
 export * from "./admin/user.schema";
 export * from "./admin/response-view.schema";
 export * from "./admin/template.schema";

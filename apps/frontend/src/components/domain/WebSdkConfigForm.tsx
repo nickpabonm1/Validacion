@@ -1,0 +1,356 @@
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { WebSdkConfigInputSchema, type WebSdkConfigInput } from "@fad-console/validation-schemas";
+import type { WebSdkConfigDto } from "@fad-console/shared-types";
+import {
+  useWebSdkConfig,
+  useUpdateWebSdkConfig,
+  useClearWebSdkCredential,
+} from "../../features/environments/useEnvironments";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Input, Textarea } from "../ui/input";
+import { Select } from "../ui/select";
+import { Button } from "../ui/button";
+import { Field, InlineSwitchField } from "../../builder/editors/Field";
+import { CredentialInput } from "./CredentialInput";
+import { EmptyState, Skeleton } from "../ui/misc";
+import { useToast } from "../ui/toast";
+
+const BLANK: WebSdkConfigInput = {
+  sdkBaseUrl: "https://uathaapiframe.firmaautografa.com",
+  sdkRequestId: undefined,
+  documentCaptureEngine: "ACUANT",
+  acuantAcasEndpoint: "https://eu.acas.acuant.net",
+  acuantLivenessEndpoint: "https://eu.passlive.acuant.net",
+  acuantAssureidEndpoint: "https://eu.assureid.acuant.net",
+  acuantParams: { idData: true, idPhoto: true, manualCapture: false },
+  acuantConfiguration: {},
+  biometricEngine: "FACETEC",
+  facetecUseMiddleware: true,
+  facetecMiddleware: {},
+  facetecConfiguration: {},
+  checkEndpoint: "/naat-check-api/idholo/multiple",
+  compareFacesEndpoint: "/biometrics/compareFacesPassive",
+  getValidationKeysEndpoint: "/validation/validations/getValidationKeys",
+  saveValidationDataEndpoint: "/validation/validations/saveValidationData",
+  checkMaxAttempts: 3,
+  checkAcceptedRisk: "LOW",
+  faceMatchMinConfidence: 85,
+};
+
+function toFormValues(config: WebSdkConfigDto): WebSdkConfigInput {
+  return {
+    sdkBaseUrl: config.sdkBaseUrl,
+    sdkRequestId: config.sdkRequestId ?? undefined,
+    documentCaptureEngine: config.documentCaptureEngine,
+    acuantAcasEndpoint: config.acuantAcasEndpoint,
+    acuantLivenessEndpoint: config.acuantLivenessEndpoint,
+    acuantAssureidEndpoint: config.acuantAssureidEndpoint,
+    acuantParams: config.acuantParams,
+    acuantConfiguration: config.acuantConfiguration,
+    biometricEngine: config.biometricEngine,
+    facetecUseMiddleware: config.facetecUseMiddleware,
+    facetecMiddleware: config.facetecMiddleware,
+    facetecConfiguration: config.facetecConfiguration,
+    checkEndpoint: config.checkEndpoint,
+    compareFacesEndpoint: config.compareFacesEndpoint,
+    getValidationKeysEndpoint: config.getValidationKeysEndpoint,
+    saveValidationDataEndpoint: config.saveValidationDataEndpoint,
+    checkMaxAttempts: config.checkMaxAttempts,
+    checkAcceptedRisk: config.checkAcceptedRisk,
+    faceMatchMinConfidence: config.faceMatchMinConfidence,
+  };
+}
+
+/** Textarea de JSON crudo (objetos CONFIGURATION/middleware de los SDK de terceros: no vale la
+ * pena modelar cada campo posible de Acuant/Facetec como formulario — son objetos de
+ * personalización visual del vendor, no secretos). Nunca usa `eval`; valida con `JSON.parse` al
+ * guardar y avisa con un toast si el JSON es inválido, igual que el resto de imports JSON de la
+ * consola (ver BuilderPage "Importar JSON"). */
+function JsonBlobField({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field label={label} hint={hint}>
+      <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={6} spellCheck={false} />
+    </Field>
+  );
+}
+
+export function WebSdkConfigForm({ environmentId }: { environmentId: string | null }) {
+  const { data: config, isLoading } = useWebSdkConfig(environmentId ?? undefined);
+  const updateConfig = useUpdateWebSdkConfig();
+  const clearCredential = useClearWebSdkCredential();
+  const { notify } = useToast();
+
+  const { register, handleSubmit, reset, setValue, watch, formState } = useForm<WebSdkConfigInput>({
+    resolver: zodResolver(WebSdkConfigInputSchema),
+    defaultValues: BLANK,
+  });
+
+  const [acuantConfigurationText, setAcuantConfigurationText] = useState("{}");
+  const [facetecMiddlewareText, setFacetecMiddlewareText] = useState("{}");
+  const [facetecConfigurationText, setFacetecConfigurationText] = useState("{}");
+  const [productionKeyTextJson, setProductionKeyTextJson] = useState("");
+
+  useEffect(() => {
+    const values = config ? toFormValues(config) : BLANK;
+    reset(values);
+    setAcuantConfigurationText(JSON.stringify(values.acuantConfiguration, null, 2));
+    setFacetecMiddlewareText(JSON.stringify(values.facetecMiddleware, null, 2));
+    setFacetecConfigurationText(JSON.stringify(values.facetecConfiguration, null, 2));
+    setProductionKeyTextJson("");
+  }, [config, reset]);
+
+  const values = watch();
+
+  if (!environmentId) {
+    return <EmptyState title="Guarda el ambiente primero" description="Crea el ambiente en «Datos generales» antes de configurar Web SDK." />;
+  }
+  if (isLoading) return <Skeleton className="h-96" />;
+
+  // Vinculado a una constante para que TypeScript conserve el tipo `string` (no `string | null`)
+  // dentro de las funciones anidadas de más abajo.
+  const envId = environmentId;
+
+  function parseJsonBlob(label: string, text: string): Record<string, unknown> | null {
+    if (!text.trim()) return {};
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("no es un objeto");
+      return parsed as Record<string, unknown>;
+    } catch {
+      notify({ title: `JSON inválido en «${label}»`, description: "Revisa la sintaxis y vuelve a intentar.", tone: "error" });
+      return null;
+    }
+  }
+
+  async function onSubmit(formValues: WebSdkConfigInput) {
+    const acuantConfiguration = parseJsonBlob("Configuración de Acuant", acuantConfigurationText);
+    const facetecMiddleware = parseJsonBlob("Middleware de Facetec", facetecMiddlewareText);
+    const facetecConfiguration = parseJsonBlob("Configuración de Facetec", facetecConfigurationText);
+    if (acuantConfiguration === null || facetecMiddleware === null || facetecConfiguration === null) return;
+
+    let facetecProductionKeyText: WebSdkConfigInput["facetecProductionKeyText"];
+    if (productionKeyTextJson.trim()) {
+      try {
+        const parsed = JSON.parse(productionKeyTextJson);
+        facetecProductionKeyText = { domains: parsed.domains ?? "", expiryDate: parsed.expiryDate ?? "", key: parsed.key ?? "" };
+      } catch {
+        notify({ title: "JSON inválido en «productionKeyText»", tone: "error" });
+        return;
+      }
+    }
+
+    try {
+      await updateConfig.mutateAsync({
+        environmentId: envId,
+        input: { ...formValues, acuantConfiguration, facetecMiddleware, facetecConfiguration, facetecProductionKeyText },
+      });
+      notify({ title: "Configuración Web SDK guardada", tone: "success" });
+      setProductionKeyTextJson("");
+    } catch (error) {
+      notify({ title: "Error al guardar", description: (error as Error).message, tone: "error" });
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>SDK (iframe)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field label="URL base del SDK" htmlFor="sdkBaseUrl" hint="uathaapiframe.firmaautografa.com (UATHA) o apiframe.firmaautografa.com (PROD)">
+            <Input id="sdkBaseUrl" {...register("sdkBaseUrl")} />
+          </Field>
+          <Field label="Request ID (métricas, opcional)" htmlFor="sdkRequestId">
+            <Input id="sdkRequestId" {...register("sdkRequestId")} />
+          </Field>
+          <CredentialInput
+            id="sdkToken"
+            label="Token del SDK (Token generation)"
+            configured={config?.sdkTokenConfigured ?? false}
+            value={values.sdkToken ?? ""}
+            onChange={(v) => setValue("sdkToken", v)}
+            onClear={() => clearCredential.mutate({ environmentId: envId, field: "sdkToken" })}
+            hint="Opcional: si se deja vacío, se usa el access_token OAuth como respaldo."
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Captura de documento (Acuant)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field label="Motor de captura" htmlFor="documentCaptureEngine">
+            <Select id="documentCaptureEngine" {...register("documentCaptureEngine")}>
+              <option value="ACUANT">Acuant</option>
+            </Select>
+          </Field>
+          <div />
+          <CredentialInput
+            id="acuantPassiveUsername"
+            label="Usuario Acuant"
+            configured={config?.acuantPassiveUsernameConfigured ?? false}
+            value={values.acuantPassiveUsername ?? ""}
+            onChange={(v) => setValue("acuantPassiveUsername", v)}
+            onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassiveUsername" })}
+          />
+          <CredentialInput
+            id="acuantPassivePassword"
+            label="Contraseña Acuant"
+            configured={config?.acuantPassivePasswordConfigured ?? false}
+            value={values.acuantPassivePassword ?? ""}
+            onChange={(v) => setValue("acuantPassivePassword", v)}
+            onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassivePassword" })}
+          />
+          <CredentialInput
+            id="acuantPassiveSubscriptionId"
+            label="Subscription ID Acuant"
+            configured={config?.acuantPassiveSubscriptionIdConfigured ?? false}
+            value={values.acuantPassiveSubscriptionId ?? ""}
+            onChange={(v) => setValue("acuantPassiveSubscriptionId", v)}
+            onClear={() => clearCredential.mutate({ environmentId: envId, field: "acuantPassiveSubscriptionId" })}
+          />
+          <Field label="Endpoint ACAS" htmlFor="acuantAcasEndpoint">
+            <Input id="acuantAcasEndpoint" {...register("acuantAcasEndpoint")} />
+          </Field>
+          <Field label="Endpoint Liveness (Acuant)" htmlFor="acuantLivenessEndpoint">
+            <Input id="acuantLivenessEndpoint" {...register("acuantLivenessEndpoint")} />
+          </Field>
+          <Field label="Endpoint AssureID" htmlFor="acuantAssureidEndpoint">
+            <Input id="acuantAssureidEndpoint" {...register("acuantAssureidEndpoint")} />
+          </Field>
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <InlineSwitchField label="Extraer OCR (idData)" checked={values.acuantParams.idData} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, idData: v })} />
+            <InlineSwitchField label="Recortar rostro de la ID (idPhoto)" checked={values.acuantParams.idPhoto} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, idPhoto: v })} />
+            <InlineSwitchField label="Captura manual" checked={values.acuantParams.manualCapture} onChange={(v) => setValue("acuantParams", { ...values.acuantParams, manualCapture: v })} />
+          </div>
+          <div className="md:col-span-2">
+            <JsonBlobField
+              label="Configuración visual de Acuant (JSON)"
+              hint="Objeto CONFIGURATION de startAcuant: colores, leyendas, vistas. No contiene secretos."
+              value={acuantConfigurationText}
+              onChange={setAcuantConfigurationText}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Prueba de vida (Facetec)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field label="Motor biométrico" htmlFor="biometricEngine">
+            <Select id="biometricEngine" {...register("biometricEngine")}>
+              <option value="FACETEC">Facetec</option>
+            </Select>
+          </Field>
+          <InlineSwitchField
+            label="Usar middleware de FAD (recomendado)"
+            checked={values.facetecUseMiddleware}
+            onChange={(v) => setValue("facetecUseMiddleware", v)}
+          />
+          {values.facetecUseMiddleware ? (
+            <div className="md:col-span-2">
+              <JsonBlobField
+                label="Descriptor del middleware (JSON)"
+                hint="module, provider, platform, app, version, additionalInfo, options.baseUrl. El token se inyecta automáticamente."
+                value={facetecMiddlewareText}
+                onChange={setFacetecMiddlewareText}
+              />
+            </div>
+          ) : (
+            <>
+              <CredentialInput
+                id="facetecDeviceKeyIdentifier"
+                label="Device Key Identifier"
+                configured={config?.facetecDeviceKeyIdentifierConfigured ?? false}
+                value={values.facetecDeviceKeyIdentifier ?? ""}
+                onChange={(v) => setValue("facetecDeviceKeyIdentifier", v)}
+                onClear={() => clearCredential.mutate({ environmentId: envId, field: "facetecDeviceKeyIdentifier" })}
+              />
+              <CredentialInput
+                id="facetecPublicFaceScanEncryptionKey"
+                label="Public FaceScan Encryption Key"
+                configured={config?.facetecPublicFaceScanEncryptionKeyConfigured ?? false}
+                value={values.facetecPublicFaceScanEncryptionKey ?? ""}
+                onChange={(v) => setValue("facetecPublicFaceScanEncryptionKey", v)}
+                onClear={() => clearCredential.mutate({ environmentId: envId, field: "facetecPublicFaceScanEncryptionKey" })}
+              />
+              <div className="md:col-span-2">
+                <CredentialInput
+                  id="facetecProductionKeyText"
+                  label='productionKeyText (JSON: {"domains","expiryDate","key"})'
+                  configured={config?.facetecProductionKeyTextConfigured ?? false}
+                  value={productionKeyTextJson}
+                  onChange={setProductionKeyTextJson}
+                  onClear={() => clearCredential.mutate({ environmentId: envId, field: "facetecProductionKeyText" })}
+                />
+              </div>
+            </>
+          )}
+          <div className="md:col-span-2">
+            <JsonBlobField
+              label="Configuración visual de Facetec (JSON)"
+              hint="Objeto CONFIGURATION de startFacetec: colores, leyendas, vistas. No contiene secretos."
+              value={facetecConfigurationText}
+              onChange={setFacetecConfigurationText}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Endpoints y umbrales</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Field label="Endpoint NAAT-CHECK" htmlFor="checkEndpoint">
+            <Input id="checkEndpoint" {...register("checkEndpoint")} />
+          </Field>
+          <Field label="Endpoint compareFacesPassive" htmlFor="compareFacesEndpoint">
+            <Input id="compareFacesEndpoint" {...register("compareFacesEndpoint")} />
+          </Field>
+          <Field label="Endpoint getValidationKeys" htmlFor="getValidationKeysEndpoint">
+            <Input id="getValidationKeysEndpoint" {...register("getValidationKeysEndpoint")} />
+          </Field>
+          <Field label="Endpoint saveValidationData" htmlFor="saveValidationDataEndpoint">
+            <Input id="saveValidationDataEndpoint" {...register("saveValidationDataEndpoint")} />
+          </Field>
+          <Field label="Intentos máximos de NAAT-CHECK" htmlFor="checkMaxAttempts">
+            <Input id="checkMaxAttempts" type="number" {...register("checkMaxAttempts", { valueAsNumber: true })} />
+          </Field>
+          <Field label="Riesgo aceptado" htmlFor="checkAcceptedRisk">
+            <Select id="checkAcceptedRisk" {...register("checkAcceptedRisk")}>
+              <option value="LOW">LOW</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="HIGH">HIGH</option>
+            </Select>
+          </Field>
+          <Field label="Confianza mínima del match facial (%)" htmlFor="faceMatchMinConfidence">
+            <Input id="faceMatchMinConfidence" type="number" {...register("faceMatchMinConfidence", { valueAsNumber: true })} />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button type="submit" disabled={formState.isSubmitting}>
+          Guardar configuración Web SDK
+        </Button>
+      </div>
+    </form>
+  );
+}

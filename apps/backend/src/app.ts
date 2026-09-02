@@ -18,6 +18,8 @@ import { responseViewsRouter } from "./modules/response-views/response-views.rou
 import { auditRouter } from "./modules/audit/audit.routes";
 import { settingsRouter } from "./modules/settings/settings.routes";
 import { mediaProxyRouter } from "./modules/media-proxy/media-proxy.routes";
+import { websdkConfigRouter } from "./modules/websdk/websdk-config.routes";
+import { websdkFlowRouter } from "./modules/websdk/websdk-flow.routes";
 import { errorHandler, notFoundHandler } from "./lib/errors";
 
 export function createApp(): express.Express {
@@ -48,7 +50,9 @@ export function createApp(): express.Express {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: "2mb" }));
+  // 20mb: el flujo Web SDK envía imágenes base64 (documento frente/reverso, idPhoto, selfie,
+  // audit trail de Facetec) en el cuerpo JSON de sus endpoints — ver módulo `websdk`.
+  app.use(express.json({ limit: "20mb" }));
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
   app.use(attachUser);
@@ -60,8 +64,12 @@ export function createApp(): express.Express {
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/environments", environmentsRouter);
+  app.use("/api/environments/:id/websdk-config", websdkConfigRouter);
   app.use("/api/providers", providersRouter);
   app.use("/api/templates", templatesRouter);
+  // Debe montarse ANTES de /api/executions: evita que "websdk" sea capturado por la ruta
+  // GET /api/executions/:id del router de ejecuciones por-pasos.
+  app.use("/api/executions/websdk", websdkFlowRouter);
   app.use("/api/executions", executionsRouter);
   app.use("/api/webhooks", webhooksPublicRouter);
   app.use("/api/webhooks", webhooksRouter);

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ApiEnvironmentDto, TestConnectionResultDto } from "@fad-console/shared-types";
-import type { ApiEnvironmentInput } from "@fad-console/validation-schemas";
+import type { ApiEnvironmentDto, TestConnectionResultDto, WebSdkConfigDto } from "@fad-console/shared-types";
+import type { ApiEnvironmentInput, WebSdkConfigInput } from "@fad-console/validation-schemas";
 import { api } from "../../lib/api-client";
 
 export function useEnvironments() {
@@ -49,5 +49,36 @@ export function useTestConnection() {
   return useMutation({
     mutationFn: (id: string) => api.post<TestConnectionResultDto>(`/environments/${id}/test-connection`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["environments"] }),
+  });
+}
+
+export function useWebSdkConfig(environmentId: string | undefined) {
+  return useQuery({
+    queryKey: ["environments", environmentId, "websdk-config"],
+    queryFn: () =>
+      api
+        .get<{ webSdkConfig: WebSdkConfigDto | null }>(`/environments/${environmentId}/websdk-config`)
+        .then((r) => r.webSdkConfig),
+    enabled: Boolean(environmentId),
+  });
+}
+
+export function useUpdateWebSdkConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ environmentId, input }: { environmentId: string; input: WebSdkConfigInput }) =>
+      api.put<{ webSdkConfig: WebSdkConfigDto }>(`/environments/${environmentId}/websdk-config`, input),
+    onSuccess: (_data, { environmentId }) =>
+      queryClient.invalidateQueries({ queryKey: ["environments", environmentId, "websdk-config"] }),
+  });
+}
+
+export function useClearWebSdkCredential() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ environmentId, field }: { environmentId: string; field: string }) =>
+      api.delete<{ webSdkConfig: WebSdkConfigDto }>(`/environments/${environmentId}/websdk-config/credentials/${field}`),
+    onSuccess: (_data, { environmentId }) =>
+      queryClient.invalidateQueries({ queryKey: ["environments", environmentId, "websdk-config"] }),
   });
 }

@@ -140,18 +140,28 @@ export function NewExecutionPage() {
                   {environments.map((env) => (
                     <button
                       key={env.id}
-                      onClick={() => setEnvironmentId(env.id)}
+                      onClick={() =>
+                        env.integrationModel === "WEB_SDK"
+                          ? navigate(`/executions/new-websdk?environmentId=${env.id}`)
+                          : setEnvironmentId(env.id)
+                      }
                       className={`rounded-lg border p-4 text-left transition-colors ${
                         environmentId === env.id ? "border-primary ring-1 ring-primary" : "border-border hover:bg-muted"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <p className="font-medium">{env.name}</p>
-                        <Badge tone={env.connectionStatus === "OK" ? "success" : env.connectionStatus === "FAILED" ? "error" : "neutral"}>
-                          {env.connectionStatus === "NOT_CONFIGURED" ? "Pendiente de configuración" : env.connectionStatus}
-                        </Badge>
+                        <div className="flex shrink-0 gap-1.5">
+                          {env.integrationModel === "WEB_SDK" ? <Badge tone="info">Web SDK</Badge> : null}
+                          <Badge tone={env.connectionStatus === "OK" ? "success" : env.connectionStatus === "FAILED" ? "error" : "neutral"}>
+                            {env.connectionStatus === "NOT_CONFIGURED" ? "Pendiente de configuración" : env.connectionStatus}
+                          </Badge>
+                        </div>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">{env.environmentType} · {env.baseUrl}</p>
+                      {env.integrationModel === "WEB_SDK" ? (
+                        <p className="mt-1 text-xs text-primary">La captura corre en el navegador (Acuant + Facetec) →</p>
+                      ) : null}
                     </button>
                   ))}
                 </div>

@@ -23,6 +23,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { useToast } from "../components/ui/toast";
 import { parsePostmanCollection, type PostmanImportResult } from "../lib/postman-import";
+import { WebSdkConfigForm } from "../components/domain/WebSdkConfigForm";
 
 const BLANK: ApiEnvironmentInput = {
   name: "",
@@ -41,6 +42,7 @@ const BLANK: ApiEnvironmentInput = {
   getValidationStepHttpMethod: "GET",
   getValidationDataEndpoint: "/validation/validations/getValidationData/{validationId}",
   webhookActive: false,
+  integrationModel: "API_BY_STEPS",
 };
 
 function toFormValues(env: ApiEnvironmentDto): ApiEnvironmentInput {
@@ -64,6 +66,7 @@ function toFormValues(env: ApiEnvironmentDto): ApiEnvironmentInput {
     launchUrlTemplate: env.launchUrlTemplate ?? undefined,
     webhookUrl: env.webhookUrl ?? undefined,
     webhookActive: env.webhookActive,
+    integrationModel: env.integrationModel,
   };
 }
 
@@ -185,7 +188,16 @@ export function EnvironmentsPage() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Tabs defaultValue="general">
+          <TabsList>
+            <TabsTrigger value="general">Datos generales</TabsTrigger>
+            <TabsTrigger value="auth">Autenticación OAuth</TabsTrigger>
+            <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
+            <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+            <TabsTrigger value="websdk">Web SDK</TabsTrigger>
+          </TabsList>
+
+          <form onSubmit={handleSubmit(onSubmit)}>
           {importResult ? (
             <div
               className={`mb-4 rounded-lg border p-4 text-sm ${
@@ -227,14 +239,6 @@ export function EnvironmentsPage() {
             </div>
           ) : null}
 
-          <Tabs defaultValue="general">
-            <TabsList>
-              <TabsTrigger value="general">Datos generales</TabsTrigger>
-              <TabsTrigger value="auth">Autenticación OAuth</TabsTrigger>
-              <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
-              <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
-            </TabsList>
-
             <TabsContent value="general">
               <Card>
                 <CardContent className="grid gap-4 p-5 md:grid-cols-2">
@@ -259,6 +263,16 @@ export function EnvironmentsPage() {
                   </Field>
                   <Field label="Reintentos máximos" htmlFor="maxRetries">
                     <Input id="maxRetries" type="number" {...register("maxRetries", { valueAsNumber: true })} />
+                  </Field>
+                  <Field
+                    label="Modelo de integración"
+                    htmlFor="integrationModel"
+                    hint="API by-steps: FAD aloja el proceso. Web SDK: la captura (Acuant/Facetec) corre en esta consola — configúrala en la pestaña «Web SDK»."
+                  >
+                    <Select id="integrationModel" {...register("integrationModel")}>
+                      <option value="API_BY_STEPS">API REST (by-steps)</option>
+                      <option value="WEB_SDK">Web SDK</option>
+                    </Select>
                   </Field>
                   <InlineSwitchField
                     label="Ambiente activo"
@@ -411,7 +425,6 @@ export function EnvironmentsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
 
           <div className="mt-4 flex justify-between">
             {selected ? (
@@ -434,7 +447,12 @@ export function EnvironmentsPage() {
               {selected ? "Guardar cambios" : "Crear ambiente"}
             </Button>
           </div>
-        </form>
+          </form>
+
+          <TabsContent value="websdk">
+            <WebSdkConfigForm environmentId={selected?.id ?? null} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {!isLoading && environments.length === 0 ? (

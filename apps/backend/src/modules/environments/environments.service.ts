@@ -1,4 +1,4 @@
-import type { ApiEnvironmentDto, ConfigurableHttpMethod, EnvironmentType } from "@fad-console/shared-types";
+import type { ApiEnvironmentDto, ConfigurableHttpMethod, EnvironmentType, IntegrationModel } from "@fad-console/shared-types";
 import type { ApiEnvironmentInput } from "@fad-console/validation-schemas";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../lib/errors";
@@ -36,6 +36,7 @@ export function toEnvironmentDto(env: EnvironmentRecord): ApiEnvironmentDto {
     webhookPasswordConfigured: credentialEncryptionService.isConfigured(env.webhookPasswordEnc),
     connectionStatus: env.connectionStatus as ApiEnvironmentDto["connectionStatus"],
     lastTestedAt: env.lastTestedAt ? env.lastTestedAt.toISOString() : null,
+    integrationModel: env.integrationModel as IntegrationModel,
     createdAt: env.createdAt.toISOString(),
     updatedAt: env.updatedAt.toISOString(),
   };
@@ -95,6 +96,7 @@ export async function createEnvironment(input: ApiEnvironmentInput) {
       webhookUrl: input.webhookUrl ?? null,
       webhookActive: input.webhookActive,
       connectionStatus: "NOT_CONFIGURED",
+      integrationModel: input.integrationModel,
       ...credentials,
     },
   });
@@ -125,6 +127,7 @@ export async function updateEnvironment(id: string, input: ApiEnvironmentInput) 
       launchUrlTemplate: input.launchUrlTemplate ?? null,
       webhookUrl: input.webhookUrl ?? null,
       webhookActive: input.webhookActive,
+      integrationModel: input.integrationModel,
       ...credentials,
     },
   });

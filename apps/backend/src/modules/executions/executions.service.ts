@@ -107,6 +107,49 @@ export function toExecutionListItemDto(
   };
 }
 
+export function toDetailDto(execution: Awaited<ReturnType<typeof getExecutionOrThrow>>) {
+  return {
+    id: execution.id,
+    validationId: execution.validationId,
+    processName: execution.processName,
+    environment: { id: execution.environment.id, name: execution.environment.name },
+    template: execution.template ? { id: execution.template.id, name: execution.template.name } : null,
+    normalizedStatus: execution.normalizedStatus,
+    rawStatus: execution.rawStatus,
+    result: execution.result,
+    isDemo: execution.isDemo,
+    clientNameMasked: execution.clientNameMasked,
+    clientEmailMasked: execution.clientEmailMasked,
+    keyMasked: execution.keyEncrypted ? "••••••••" : null,
+    vectorMasked: execution.vectorEncrypted ? "••••••••" : null,
+    startedAt: execution.startedAt?.toISOString() ?? null,
+    completedAt: execution.completedAt?.toISOString() ?? null,
+    lastSyncedAt: execution.lastSyncedAt?.toISOString() ?? null,
+    createdAt: execution.createdAt.toISOString(),
+    normalized: fromJsonField(execution.normalizedResponse, null),
+    requestPayload: fromJsonField(execution.requestPayload, null),
+    steps: execution.steps.map((s) => ({
+      id: s.id,
+      stepKey: s.stepKey,
+      order: s.order,
+      show: s.show,
+      status: s.status,
+      configuration: fromJsonField(s.configuration, {}),
+      features: fromJsonField(s.features, {}),
+      data: fromJsonField(s.data, null),
+      startedAt: s.startedAt?.toISOString() ?? null,
+      completedAt: s.completedAt?.toISOString() ?? null,
+    })),
+    webhookEvents: execution.webhookEvents.map((w) => ({
+      id: w.id,
+      eventType: w.eventType,
+      receivedAt: w.receivedAt.toISOString(),
+      processingStatus: w.processingStatus,
+      retry: w.retry,
+    })),
+  };
+}
+
 export interface ExecutionFilters {
   status?: string;
   environmentId?: string;

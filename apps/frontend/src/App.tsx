@@ -7,6 +7,7 @@ import { DashboardPage } from "./routes/DashboardPage";
 import { BuilderPage } from "./routes/BuilderPage";
 import { TemplatesPage } from "./routes/TemplatesPage";
 import { NewExecutionPage } from "./routes/NewExecutionPage";
+import { WebSdkCapturePage } from "./routes/WebSdkCapturePage";
 import { ExecutionsPage } from "./routes/ExecutionsPage";
 import { ExecutionDetailPage } from "./routes/ExecutionDetailPage";
 import { ResponseDesignerPage } from "./routes/ResponseDesignerPage";
@@ -30,6 +31,7 @@ export function App() {
         <Route path="builder/:templateId" element={<BuilderPage />} />
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="executions/new" element={<NewExecutionPage />} />
+        <Route path="executions/new-websdk" element={<WebSdkCapturePage />} />
         <Route path="executions" element={<ExecutionsPage />} />
         <Route path="executions/:executionId" element={<ExecutionDetailPage />} />
         <Route

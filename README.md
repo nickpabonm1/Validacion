@@ -1,15 +1,18 @@
 # FAD Biometrics Configuration & Results Console
 
 Consola web para **configurar, ejecutar, administrar y visualizar** procesos de validación
-biométrica por pasos contra la API **FAD Biometrics By Steps** (Firma Autógrafa Digital / NA-AT
-Sovos). Incluye: constructor visual de validaciones (drag & drop), formularios dinámicos, tema
-visual personalizable, asistente de ejecución con enlace del proceso listo para compartir por
-código QR, WhatsApp u otro canal, historial y detalle de validaciones con reporte automático,
-diseñador de vistas de respuesta, recepción idempotente de webhooks, RBAC, auditoría y cifrado de
-credenciales.
+biométrica contra **FAD** (Firma Autógrafa Digital / NA-AT Sovos), con dos modelos de
+integración: **API REST (by-steps)**, donde FAD aloja el proceso y esta consola lo
+configura/monitorea, y **Web SDK**, donde la captura de documento (Acuant) y la prueba de vida
+(Facetec) corren embebidas en el navegador de esta consola (ver `docs/websdk-integration.md`).
+Incluye: constructor visual de validaciones (drag & drop), formularios dinámicos, tema visual
+personalizable, asistente de ejecución con enlace del proceso listo para compartir por código QR,
+WhatsApp u otro canal, historial y detalle de validaciones con reporte automático, diseñador de
+vistas de respuesta, recepción idempotente de webhooks, RBAC, auditoría y cifrado de credenciales.
 
 > Ningún secreto real de FAD fue usado durante el desarrollo. Todas las credenciales, seeds y
-> ejemplos de este repositorio son ficticios. Ver `docs/technical-analysis.md`.
+> ejemplos de este repositorio son ficticios. Ver `docs/technical-analysis.md` y
+> `docs/websdk-integration.md`.
 
 ## Instalación en 5 pasos
 

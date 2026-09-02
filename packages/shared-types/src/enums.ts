@@ -8,6 +8,28 @@ export const HTTP_METHODS = ["GET", "POST"] as const;
 export type ConfigurableHttpMethod = (typeof HTTP_METHODS)[number];
 
 /**
+ * Modelo de integración de un ambiente (ver docs/technical-analysis.md — "Selección del Modelo
+ * de Integración"). API_BY_STEPS es el modelo original: FAD aloja el proceso y esta consola solo
+ * lo configura/monitorea. WEB_SDK habilita captura embebida (Acuant + Facetec) en el navegador,
+ * orquestada por esta consola — ver docs/websdk-integration.md.
+ */
+export const INTEGRATION_MODELS = ["API_BY_STEPS", "WEB_SDK"] as const;
+export type IntegrationModel = (typeof INTEGRATION_MODELS)[number];
+
+/** Motor de captura documental para el modelo Web SDK. Solo Acuant está implementado por ahora;
+ * Regula queda documentado como trabajo futuro (ver docs/websdk-integration.md). */
+export const DOCUMENT_CAPTURE_ENGINES = ["ACUANT"] as const;
+export type DocumentCaptureEngine = (typeof DOCUMENT_CAPTURE_ENGINES)[number];
+
+/** Motor de prueba de vida para el modelo Web SDK. Solo Facetec está implementado. */
+export const BIOMETRIC_ENGINES = ["FACETEC"] as const;
+export type BiometricEngine = (typeof BIOMETRIC_ENGINES)[number];
+
+/** Nivel de riesgo devuelto por el servicio NAAT-CHECK. */
+export const RISK_LEVELS = ["LOW", "MEDIUM", "HIGH"] as const;
+export type RiskLevel = (typeof RISK_LEVELS)[number];
+
+/**
  * Estado normalizado interno. El valor original de FAD (español/inglés, variable según
  * endpoint) siempre se preserva en `rawStatus`.
  */
