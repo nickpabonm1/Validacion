@@ -34,3 +34,12 @@ export function useDeleteUserAdmin() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
 }
+
+/** Dispara el mismo flujo público de "Olvidé mi contraseña" para el correo de un usuario ya
+ * existente — la alternativa disponible para cualquier ADMIN (no solo el superadministrador) al
+ * cambio directo de contraseña. */
+export function useSendPasswordResetForUser() {
+  return useMutation({
+    mutationFn: (id: string) => api.post<{ message: string }>(`/users/${id}/send-password-reset`),
+  });
+}

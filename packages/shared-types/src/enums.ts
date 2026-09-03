@@ -135,5 +135,8 @@ export const AUDIT_ACTIONS = [
   "WEBHOOK_RECEIVED",
   "EXPORT",
   "SHARE_LINK_SENT",
+  "PASSWORD_RESET_REQUESTED",
+  "PASSWORD_RESET_COMPLETED",
+  "ADMIN_PASSWORD_RESET",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

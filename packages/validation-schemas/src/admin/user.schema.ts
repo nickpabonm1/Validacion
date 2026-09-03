@@ -31,3 +31,14 @@ export type LoginInput = z.infer<typeof LoginInputSchema>;
 
 export const BootstrapAdminInputSchema = CreateUserInputSchema.omit({ role: true, active: true });
 export type BootstrapAdminInput = z.infer<typeof BootstrapAdminInputSchema>;
+
+export const ForgotPasswordInputSchema = z.object({
+  email: z.string().email("Correo inválido"),
+});
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordInputSchema>;
+
+export const ResetPasswordInputSchema = z.object({
+  token: z.string().min(1, "Token requerido"),
+  password: z.string().min(PASSWORD_MIN, `La contraseña debe tener al menos ${PASSWORD_MIN} caracteres`),
+});
+export type ResetPasswordInput = z.infer<typeof ResetPasswordInputSchema>;

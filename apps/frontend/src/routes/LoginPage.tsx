@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginInputSchema, type LoginInput } from "@fad-console/validation-schemas";
@@ -50,7 +50,12 @@ export function LoginPage() {
               {errors.email ? <p className="text-xs text-destructive">{errors.email.message}</p> : null}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Contraseña</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Contraseña</Label>
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
               <Input id="password" type="password" autoComplete="current-password" {...register("password")} />
               {errors.password ? <p className="text-xs text-destructive">{errors.password.message}</p> : null}
             </div>

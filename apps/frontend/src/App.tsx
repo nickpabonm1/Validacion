@@ -1,5 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import { LoginPage } from "./routes/LoginPage";
+import { ForgotPasswordPage } from "./routes/ForgotPasswordPage";
+import { ResetPasswordPage } from "./routes/ResetPasswordPage";
 import { SetupWizardPage } from "./routes/SetupWizardPage";
 import { RequireAuth } from "./components/layout/RequireAuth";
 import { RequireRole } from "./components/layout/RequireRole";
@@ -28,6 +30,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/setup" element={<SetupWizardPage />} />
       <Route path="/v/:token" element={<WebSdkPublicCapturePage />} />
 

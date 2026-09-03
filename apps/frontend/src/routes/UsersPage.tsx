@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { KeyRound, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Mail, Plus, Trash2 } from "lucide-react";
 import { CreateUserInputSchema, type CreateUserInput } from "@fad-console/validation-schemas";
 import type { UserRole } from "@fad-console/shared-types";
 import { useAuth } from "../lib/auth-context";
-import { useUsersAdmin, useCreateUserAdmin, useUpdateUserAdmin, useDeleteUserAdmin } from "../features/users/useUsersAdmin";
+import {
+  useUsersAdmin,
+  useCreateUserAdmin,
+  useUpdateUserAdmin,
+  useDeleteUserAdmin,
+  useSendPasswordResetForUser,
+} from "../features/users/useUsersAdmin";
 import { useClients } from "../features/clients/useClients";
 import { PageHeader, Skeleton } from "../components/ui/misc";
 import { Button } from "../components/ui/button";
@@ -22,11 +28,18 @@ export function UsersPage() {
   const createUser = useCreateUserAdmin();
   const updateUser = useUpdateUserAdmin();
   const deleteUser = useDeleteUserAdmin();
+  const sendPasswordReset = useSendPasswordResetForUser();
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [clientId, setClientId] = useState("");
   const { data: clients } = useClients();
   const clientNameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
+
+  /** Un ADMIN de plataforma (`clientId: null`) es el "superadministrador": el único con permiso
+   * para cambiar la contraseña de otro usuario directamente, sin pasar por correo (ver
+   * users.routes.ts PATCH /:id). Un ADMIN confinado a un cliente solo puede enviar el enlace de
+   * restablecimiento, igual que el flujo público "Olvidé mi contraseña". */
+  const isSuperAdmin = currentUser?.role === "ADMIN" && currentUser?.clientId === null;
 
   const [resetPasswordUser, setResetPasswordUser] = useState<{ id: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -161,18 +174,34 @@ export function UsersPage() {
                     </button>
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Restablecer contraseña"
-                      onClick={() => {
-                        setNewPassword("");
-                        setResetPasswordError(null);
-                        setResetPasswordUser({ id: u.id, name: u.name });
-                      }}
-                    >
-                      <KeyRound className="h-4 w-4" />
-                    </Button>
+                    {isSuperAdmin ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Restablecer contraseña directamente (superadministrador)"
+                        disabled={u.id === currentUser?.id}
+                        onClick={() => {
+                          setNewPassword("");
+                          setResetPasswordError(null);
+                          setResetPasswordUser({ id: u.id, name: u.name });
+                        }}
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Enviar enlace de restablecimiento por correo"
+                        disabled={u.id === currentUser?.id || sendPasswordReset.isPending}
+                        onClick={async () => {
+                          await sendPasswordReset.mutateAsync(u.id);
+                          notify({ title: "Enlace enviado", description: `Se envió un enlace de restablecimiento a ${u.email}.`, tone: "success" });
+                        }}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

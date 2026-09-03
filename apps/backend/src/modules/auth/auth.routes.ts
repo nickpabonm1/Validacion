@@ -1,17 +1,29 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { BootstrapAdminInputSchema, LoginInputSchema } from "@fad-console/validation-schemas";
+import { BootstrapAdminInputSchema, ForgotPasswordInputSchema, LoginInputSchema, ResetPasswordInputSchema } from "@fad-console/validation-schemas";
 import { env } from "../../config/env";
 import { AppError } from "../../lib/errors";
+import { logger } from "../../lib/logger";
 import { logAudit } from "../audit/audit.service";
 import { countUsers, createUser, findUserByEmail, toUserDto } from "../users/users.service";
 import { verifyPassword } from "./password";
+import { requestPasswordReset, resetPasswordWithToken } from "./password-reset.service";
 import { SESSION_COOKIE_NAME, signSessionToken } from "./jwt";
 import { attachUser, auditContextFrom, requireAuth } from "./auth.middleware";
 
 export const authRouter = Router();
 
 const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: "RATE_LIMITED", message: "Demasiados intentos, intente más tarde" } },
+});
+
+/** Mismo límite que login: ambos endpoints son públicos y podrían usarse para enumerar correos o
+ * agotar el envío de SMTP si no se limitan. */
+const passwordResetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   standardHeaders: true,
@@ -83,6 +95,38 @@ authRouter.post("/login", loginLimiter, async (req, res, next) => {
     setSessionCookie(res, token);
     await logAudit("LOGIN", "User", user.id, { ...auditCtx, userId: user.id });
     res.json({ user: toUserDto(user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Siempre responde igual, exista o no el correo, y también si el envío falla por cualquier
+ * motivo (p. ej. SMTP mal configurado) — nunca revela nada al llamador anónimo que permita
+ * distinguir un caso de otro (evita enumeración de usuarios). Un fallo real de envío sí se
+ * registra en el log del servidor para que un administrador lo note; para diagnóstico honesto
+ * con feedback real, un ADMIN autenticado puede usar `POST /users/:id/send-password-reset`, que
+ * si propaga el error. */
+authRouter.post("/forgot-password", passwordResetLimiter, async (req, res, next) => {
+  try {
+    const input = ForgotPasswordInputSchema.parse(req.body);
+    try {
+      await requestPasswordReset(input.email, { ip: req.ip ?? null, userAgent: req.get("user-agent") ?? null });
+    } catch (error) {
+      logger.error("Fallo al procesar una solicitud de restablecimiento de contraseña", {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+    res.json({ message: "Si el correo existe, te enviamos un enlace para restablecer tu contraseña." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post("/reset-password", passwordResetLimiter, async (req, res, next) => {
+  try {
+    const input = ResetPasswordInputSchema.parse(req.body);
+    await resetPasswordWithToken(input.token, input.password, { ip: req.ip ?? null, userAgent: req.get("user-agent") ?? null });
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

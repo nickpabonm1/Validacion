@@ -37,14 +37,32 @@ model User {
   clientId String?
   client   Client? @relation(fields: [clientId], references: [id])
 
-  createdTemplates ValidationTemplate[]  @relation("TemplateCreatedBy")
-  updatedTemplates ValidationTemplate[]  @relation("TemplateUpdatedBy")
-  executions       ValidationExecution[] @relation("ExecutionCreatedBy")
-  auditLogs        AuditLog[]
-  updatedSettings  SystemSetting[]
-  shareLinks       WebSdkShareLink[]     @relation("ShareLinkCreatedBy")
+  createdTemplates    ValidationTemplate[]  @relation("TemplateCreatedBy")
+  updatedTemplates    ValidationTemplate[]  @relation("TemplateUpdatedBy")
+  executions          ValidationExecution[] @relation("ExecutionCreatedBy")
+  auditLogs           AuditLog[]
+  updatedSettings     SystemSetting[]
+  shareLinks          WebSdkShareLink[]     @relation("ShareLinkCreatedBy")
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+/// Token de un solo uso para "Olvidé mi contraseña" (correo). Solo se guarda el hash SHA-256 del
+/// token (nunca el valor enviado por correo) — igual criterio que las credenciales cifradas: el
+/// valor real solo existe en el enlace que recibe el usuario. `usedAt` lo invalida tras usarse una
+/// vez; `expiresAt` lo invalida por tiempo aunque nadie lo use.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 /// Jerarquía de clientes (multi-tenant): un cliente puede tener clientes "hijos"
@@ -55,10 +73,10 @@ model User {
 /// color/favicon son la personalización de marca ("white-label") que un cliente ve al entrar, y
 /// que también puede definir para sus propios hijos.
 model Client {
-  id             String  @id @default(uuid())
+  id             String   @id @default(uuid())
   name           String
   parentClientId String?
-  parentClient   Client? @relation("ClientHierarchy", fields: [parentClientId], references: [id], onDelete: Cascade)
+  parentClient   Client?  @relation("ClientHierarchy", fields: [parentClientId], references: [id], onDelete: Cascade)
   children       Client[] @relation("ClientHierarchy")
 
   /// Data URL (base64) — igual patrón que NormalizedMediaAsset.dataUrl, sin infraestructura de
@@ -534,12 +552,12 @@ model DatabaseConnectionConfig {
 
   engine String @default("SQLITE")
 
-  host         String?
-  port         Int?
-  databaseName String?
-  username     String?
-  passwordEnc  String?
-  ssl          Boolean @default(true)
+  host          String?
+  port          Int?
+  databaseName  String?
+  username      String?
+  passwordEnc   String?
+  ssl           Boolean @default(true)
   /// URI completa (p. ej. `bolt://host:7687`) para motores que no usan host/puerto separados,
   /// como Neo4j.
   connectionUri String?

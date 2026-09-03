@@ -97,6 +97,16 @@ export async function updateUser(
   return prisma.user.update({ where: { id }, data });
 }
 
+/** Usuario dentro del alcance del que llama, o 403 si está fuera de su subárbol de clientes —
+ * usado por rutas que necesitan el registro completo (p. ej. el correo, para enviar un enlace de
+ * restablecimiento) más allá de lo que expone `toUserDto`. */
+export async function getUserWithinScope(id: string, scope?: ClientScope) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw AppError.notFound("Usuario no encontrado");
+  if (scope) assertWithinScope(user.clientId, scope);
+  return user;
+}
+
 export async function deleteUser(id: string, scope?: ClientScope) {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw AppError.notFound("Usuario no encontrado");
