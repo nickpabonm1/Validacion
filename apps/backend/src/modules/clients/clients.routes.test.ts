@@ -207,4 +207,49 @@ describe("Jerarquía de clientes (multi-tenant): aislamiento por subárbol", () 
     expect(platformRes.body.stats.environments.some((e: { name: string }) => e.name === "Ambiente de plataforma")).toBe(true);
     expect(clientARes.body.stats.environments.some((e: { name: string }) => e.name === "Ambiente de plataforma")).toBe(false);
   });
+
+  it("el admin del cliente A NO puede configurar la conexión a base de datos externa del cliente D (fuera de su subárbol)", async () => {
+    const res = await request(app)
+      .put(`/api/clients/${clientDId}/database-connection`)
+      .set("Cookie", clientAAdminCookie)
+      .send({ engine: "MONGODB", connectionUri: "mongodb://hackeado:27017" });
+    expect(res.status).toBe(403);
+  });
+
+  it("el admin del cliente A puede guardar su propia conexión externa (MongoDB), y la lectura la refleja sin exponer la contraseña", async () => {
+    const putRes = await request(app)
+      .put(`/api/clients/${clientAId}/database-connection`)
+      .set("Cookie", clientAAdminCookie)
+      .send({ engine: "MONGODB", connectionUri: "mongodb://mongo.cliente-a.invalid:27017", username: "app", password: "secreta", databaseName: "clientea" });
+    expect(putRes.status).toBe(200);
+    expect(putRes.body.client.externalDbEngine).toBe("MONGODB");
+    expect(putRes.body.client.externalDbConnectionUri).toBe("mongodb://mongo.cliente-a.invalid:27017");
+    expect(putRes.body.client.externalDbPasswordConfigured).toBe(true);
+    expect(JSON.stringify(putRes.body.client)).not.toContain("secreta"); // la contraseña nunca viaja en el DTO
+
+    const listRes = await request(app).get("/api/clients").set("Cookie", clientAAdminCookie);
+    const clientA = listRes.body.clients.find((c: { id: string }) => c.id === clientAId);
+    expect(clientA.externalDbEngine).toBe("MONGODB");
+  });
+
+  it("borrar la conexión externa (engine: null) limpia todos los campos relacionados", async () => {
+    const res = await request(app)
+      .put(`/api/clients/${clientAId}/database-connection`)
+      .set("Cookie", clientAAdminCookie)
+      .send({ engine: null });
+    expect(res.status).toBe(200);
+    expect(res.body.client.externalDbEngine).toBeNull();
+    expect(res.body.client.externalDbConnectionUri).toBeNull();
+    expect(res.body.client.externalDbPasswordConfigured).toBe(false);
+  });
+
+  it("POST /database-connection/test contra un host inalcanzable devuelve un fallo real, no un éxito fabricado", async () => {
+    const res = await request(app)
+      .post(`/api/clients/${clientAId}/database-connection/test`)
+      .set("Cookie", clientAAdminCookie)
+      .send({ engine: "MONGODB", connectionUri: "mongodb://host-que-no-existe.invalid:27017", password: "x" });
+    expect(res.status).toBe(200);
+    expect(res.body.result.supported).toBe(true);
+    expect(res.body.result.ok).toBe(false);
+  }, 20000);
 });

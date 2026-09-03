@@ -73,6 +73,18 @@ model Client {
   emailSubjectTemplate String?
   emailBodyTemplate    String?
 
+  /// Conexión a una base de datos EXTERNA propia del cliente (MongoDB o Neo4j) — a diferencia
+  /// del resto de este esquema, esto NO usa Prisma para hablar con esa base: se conecta con el
+  /// driver oficial de cada motor (`mongodb`/`neo4j-driver`) directamente desde
+  /// `client-database-connection.service.ts`, así que sí hay soporte funcional real (probar
+  /// conexión de verdad), no solo una preferencia guardada. `externalDbEngine`: "MONGODB" |
+  /// "GRAPH_NEO4J" | `null` (sin conexión externa configurada para este cliente).
+  externalDbEngine        String?
+  externalDbConnectionUri String?
+  externalDbUsername      String?
+  externalDbPasswordEnc   String?
+  externalDbDatabaseName  String?
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

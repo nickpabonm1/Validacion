@@ -1,18 +1,21 @@
-import { useState } from "react";
-import { Plus, Trash2, Settings2, Building2, Mail } from "lucide-react";
-import type { ClientDto } from "@fad-console/shared-types";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, Settings2, Building2, Mail, Database, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CLIENT_EXTERNAL_DB_ENGINES, type ClientDto, type ClientExternalDbEngine } from "@fad-console/shared-types";
 import {
   useClients,
   useCreateClient,
   useUpdateClient,
   useUpdateClientBranding,
   useUpdateClientEmailTemplate,
+  useUpdateClientDatabaseConnection,
+  useTestClientDatabaseConnection,
   useDeleteClient,
 } from "../features/clients/useClients";
 import { PageHeader, EmptyState, Skeleton } from "../components/ui/misc";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Select } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "../components/ui/dialog";
 import { useToast } from "../components/ui/toast";
@@ -263,12 +266,164 @@ function EmailTemplateDialog({ client, open, onOpenChange }: { client: ClientDto
   );
 }
 
+const CLIENT_DB_ENGINE_LABELS: Record<ClientExternalDbEngine, string> = {
+  MONGODB: "MongoDB",
+  GRAPH_NEO4J: "Neo4j (grafos)",
+};
+
+/** Conexión a una base de datos EXTERNA propia del cliente (MongoDB o Neo4j) — cada cliente
+ * especifica su propia conexión y el sistema se conecta con el driver oficial de ese motor
+ * (nunca a través de Prisma, ver `client-database-connection.service.ts`). No hereda de un
+ * cliente padre: a diferencia de la marca o la plantilla de correo, es propia de cada cliente. */
+function ClientDatabaseDialog({ client, open, onOpenChange }: { client: ClientDto; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { notify } = useToast();
+  const updateConnection = useUpdateClientDatabaseConnection();
+  const testConnection = useTestClientDatabaseConnection();
+
+  const [engine, setEngine] = useState<ClientExternalDbEngine | "">(client.externalDbEngine ?? "");
+  const [connectionUri, setConnectionUri] = useState(client.externalDbConnectionUri ?? "");
+  const [username, setUsername] = useState(client.externalDbUsername ?? "");
+  const [password, setPassword] = useState("");
+  const [databaseName, setDatabaseName] = useState(client.externalDbDatabaseName ?? "");
+
+  useEffect(() => {
+    if (!open) return;
+    setEngine(client.externalDbEngine ?? "");
+    setConnectionUri(client.externalDbConnectionUri ?? "");
+    setUsername(client.externalDbUsername ?? "");
+    setPassword("");
+    setDatabaseName(client.externalDbDatabaseName ?? "");
+    // Depender solo de `client.id` (no del objeto `client` completo) es intencional: `ClientsPage`
+    // reconstruye un objeto `client` nuevo en cada uno de sus renders (`sortAsTree` hace spread),
+    // así que depender del objeto entero reiniciaba el formulario en cualquier re-render del
+    // padre mientras el diálogo seguía abierto — incluso a mitad de "Probar conexión", perdiendo
+    // lo que el usuario ya había escrito. Con `client.id` el efecto solo corre al abrir el
+    // diálogo o al cambiar de cliente, que es lo que realmente se quiere sincronizar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, client.id]);
+
+  function currentInput() {
+    return {
+      connectionUri: connectionUri || undefined,
+      username: username || undefined,
+      password: password || undefined,
+      databaseName: databaseName || undefined,
+    };
+  }
+
+  async function handleSave() {
+    try {
+      if (!engine) {
+        await updateConnection.mutateAsync({ id: client.id, input: { engine: null } });
+      } else {
+        await updateConnection.mutateAsync({ id: client.id, input: { engine, ...currentInput() } });
+      }
+      notify({ title: "Conexión de base de datos guardada", tone: "success" });
+      onOpenChange(false);
+    } catch (error) {
+      notify({ title: "Error al guardar", description: (error as Error).message, tone: "error" });
+    }
+  }
+
+  async function handleTest() {
+    if (!engine) return;
+    try {
+      await testConnection.mutateAsync({ id: client.id, input: { engine, ...currentInput() } });
+    } catch (error) {
+      notify({ title: "Error al probar la conexión", description: (error as Error).message, tone: "error" });
+    }
+  }
+
+  const result = testConnection.data;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Base de datos externa de {client.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Si {client.name} quiere que sus propios datos se guarden en su propia base de datos (MongoDB o Neo4j), define
+            la conexión aquí. El sistema se conecta directamente con el driver oficial de ese motor.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="client-db-engine">Motor</Label>
+            <Select id="client-db-engine" value={engine} onChange={(e) => setEngine(e.target.value as ClientExternalDbEngine | "")}>
+              <option value="">Ninguna (no usa base de datos externa)</option>
+              {CLIENT_EXTERNAL_DB_ENGINES.map((e) => (
+                <option key={e} value={e}>
+                  {CLIENT_DB_ENGINE_LABELS[e]}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {engine ? (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="client-db-uri">URI de conexión</Label>
+                <Input
+                  id="client-db-uri"
+                  value={connectionUri}
+                  onChange={(e) => setConnectionUri(e.target.value)}
+                  placeholder={engine === "MONGODB" ? "mongodb://host:27017" : "bolt://host:7687"}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="client-db-username">Usuario</Label>
+                  <Input id="client-db-username" value={username} onChange={(e) => setUsername(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="client-db-password">
+                    Contraseña{client.externalDbPasswordConfigured ? " (ya guardada — deja vacío para no cambiarla)" : ""}
+                  </Label>
+                  <Input id="client-db-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="client-db-name">Nombre de la base de datos</Label>
+                <Input id="client-db-name" value={databaseName} onChange={(e) => setDatabaseName(e.target.value)} />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button type="button" variant="outline" onClick={() => void handleTest()} disabled={testConnection.isPending}>
+                  {testConnection.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Probar conexión
+                </Button>
+                {result ? (
+                  <div className={`flex items-center gap-1.5 text-xs ${result.ok ? "text-success" : "text-destructive"}`}>
+                    {result.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                    <span>
+                      {result.message}
+                      {result.durationMs !== null ? ` (${result.durationMs} ms)` : ""}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void handleSave()} disabled={updateConnection.isPending}>
+            Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ClientRow({ client, depth, onAddChild }: { client: ClientDto; depth: number; onAddChild: (parentId: string) => void }) {
   const { notify } = useToast();
   const updateClient = useUpdateClient();
   const deleteClient = useDeleteClient();
   const [brandingOpen, setBrandingOpen] = useState(false);
   const [emailTemplateOpen, setEmailTemplateOpen] = useState(false);
+  const [databaseOpen, setDatabaseOpen] = useState(false);
 
   const canDelete = client.userCount === 0 && client.childCount === 0 && client.environmentCount === 0;
 
@@ -302,6 +457,9 @@ function ClientRow({ client, depth, onAddChild }: { client: ClientDto; depth: nu
         <Button variant="ghost" size="icon" aria-label="Plantilla de correo" onClick={() => setEmailTemplateOpen(true)}>
           <Mail className="h-4 w-4" />
         </Button>
+        <Button variant="ghost" size="icon" aria-label="Base de datos externa" onClick={() => setDatabaseOpen(true)}>
+          <Database className="h-4 w-4" />
+        </Button>
         <button type="button" onClick={() => updateClient.mutate({ id: client.id, input: { active: !client.active } })}>
           <Badge tone={client.active ? "success" : "neutral"}>{client.active ? "Activo" : "Inactivo"}</Badge>
         </button>
@@ -325,6 +483,7 @@ function ClientRow({ client, depth, onAddChild }: { client: ClientDto; depth: nu
       </div>
       <BrandingDialog client={client} open={brandingOpen} onOpenChange={setBrandingOpen} />
       <EmailTemplateDialog client={client} open={emailTemplateOpen} onOpenChange={setEmailTemplateOpen} />
+      <ClientDatabaseDialog client={client} open={databaseOpen} onOpenChange={setDatabaseOpen} />
     </div>
   );
 }

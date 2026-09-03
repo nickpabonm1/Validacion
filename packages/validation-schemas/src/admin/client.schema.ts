@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CLIENT_EXTERNAL_DB_ENGINES } from "@fad-console/shared-types";
 
 const HEX_COLOR = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const DATA_URL_IMAGE = /^data:image\/(png|jpe?g|svg\+xml|webp|x-icon);base64,/;
@@ -30,3 +31,25 @@ export const UpdateClientEmailTemplateInputSchema = z.object({
   emailBodyTemplate: z.union([z.literal(""), z.string().min(1).max(20000)]).optional(),
 });
 export type UpdateClientEmailTemplateInput = z.infer<typeof UpdateClientEmailTemplateInputSchema>;
+
+/** Conexión a la base de datos EXTERNA propia de un cliente (MongoDB o Neo4j) — `engine: null`
+ * borra la conexión configurada (el cliente deja de tener una). `password` vacío = no cambiar la
+ * ya guardada, igual que otras credenciales de esta consola. */
+export const UpdateClientDatabaseConnectionInputSchema = z.object({
+  engine: z.enum(CLIENT_EXTERNAL_DB_ENGINES).nullable(),
+  connectionUri: z.string().min(1).max(2000).optional().nullable(),
+  username: z.string().max(300).optional().nullable(),
+  password: z.string().max(500).optional(),
+  databaseName: z.string().max(300).optional().nullable(),
+});
+export type UpdateClientDatabaseConnectionInput = z.infer<typeof UpdateClientDatabaseConnectionInputSchema>;
+
+/** Igual forma, para "Probar conexión" sin necesariamente guardar. */
+export const TestClientDatabaseConnectionInputSchema = z.object({
+  engine: z.enum(CLIENT_EXTERNAL_DB_ENGINES),
+  connectionUri: z.string().min(1).max(2000).optional().nullable(),
+  username: z.string().max(300).optional().nullable(),
+  password: z.string().max(500).optional(),
+  databaseName: z.string().max(300).optional().nullable(),
+});
+export type TestClientDatabaseConnectionInput = z.infer<typeof TestClientDatabaseConnectionInputSchema>;

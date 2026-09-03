@@ -1,12 +1,14 @@
-import type { ClientBrandingDto, ClientDto, ClientEmailTemplateDto } from "@fad-console/shared-types";
+import type { ClientBrandingDto, ClientDto, ClientEmailTemplateDto, ClientExternalDbEngine } from "@fad-console/shared-types";
 import type {
   CreateClientInput,
   UpdateClientBrandingInput,
+  UpdateClientDatabaseConnectionInput,
   UpdateClientEmailTemplateInput,
   UpdateClientInput,
 } from "@fad-console/validation-schemas";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../lib/errors";
+import { credentialEncryptionService } from "../credentials/credential-encryption.service";
 import { DEFAULT_EMAIL_BODY_TEMPLATE, DEFAULT_EMAIL_SUBJECT_TEMPLATE } from "../messaging/email-template";
 import { assertWithinScope, clientWhereClause, type ClientScope } from "./client-scope";
 
@@ -23,6 +25,11 @@ interface ClientRecordShape {
   primaryColor: string | null;
   emailSubjectTemplate: string | null;
   emailBodyTemplate: string | null;
+  externalDbEngine: string | null;
+  externalDbConnectionUri: string | null;
+  externalDbUsername: string | null;
+  externalDbPasswordEnc: string | null;
+  externalDbDatabaseName: string | null;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -39,6 +46,11 @@ export function toClientDto(client: ClientRecordShape): ClientDto {
     primaryColor: client.primaryColor,
     emailSubjectTemplate: client.emailSubjectTemplate,
     emailBodyTemplate: client.emailBodyTemplate,
+    externalDbEngine: client.externalDbEngine as ClientExternalDbEngine | null,
+    externalDbConnectionUri: client.externalDbConnectionUri,
+    externalDbUsername: client.externalDbUsername,
+    externalDbPasswordConfigured: credentialEncryptionService.isConfigured(client.externalDbPasswordEnc),
+    externalDbDatabaseName: client.externalDbDatabaseName,
     active: client.active,
     userCount: client._count.users,
     childCount: client._count.children,
@@ -111,6 +123,48 @@ export async function updateClientEmailTemplate(
   if (input.emailBodyTemplate !== undefined) data.emailBodyTemplate = input.emailBodyTemplate === "" ? null : input.emailBodyTemplate;
   const client = await prisma.client.update({ where: { id }, data, ...WITH_COUNTS });
   return toClientDto(client);
+}
+
+/** Conexión a la base de datos EXTERNA propia de un cliente (MongoDB o Neo4j) — no hereda de un
+ * cliente padre, cada uno la configura para sí mismo. `engine: null` borra la conexión. */
+export async function updateClientDatabaseConnection(
+  id: string,
+  input: UpdateClientDatabaseConnectionInput,
+  scope: ClientScope,
+): Promise<ClientDto> {
+  assertWithinScope(id, scope);
+  const data: Record<string, unknown> =
+    input.engine === null
+      ? {
+          externalDbEngine: null,
+          externalDbConnectionUri: null,
+          externalDbUsername: null,
+          externalDbPasswordEnc: null,
+          externalDbDatabaseName: null,
+        }
+      : {
+          externalDbEngine: input.engine,
+          ...(input.connectionUri !== undefined ? { externalDbConnectionUri: input.connectionUri } : {}),
+          ...(input.username !== undefined ? { externalDbUsername: input.username } : {}),
+          ...(input.password !== undefined ? { externalDbPasswordEnc: credentialEncryptionService.encryptIfPresent(input.password) } : {}),
+          ...(input.databaseName !== undefined ? { externalDbDatabaseName: input.databaseName } : {}),
+        };
+  const client = await prisma.client.update({ where: { id }, data, ...WITH_COUNTS });
+  return toClientDto(client);
+}
+
+/** Descifra la contraseña de conexión externa guardada de un cliente, para uso interno al
+ * conectar de verdad (nunca expuesto vía DTO). */
+export function decryptClientExternalDbPassword(passwordEnc: string | null): string | null {
+  return credentialEncryptionService.decryptOrNull(passwordEnc);
+}
+
+/** Contraseña cifrada de conexión externa ya guardada para un cliente (o `null` si no hay una) —
+ * para que "Probar conexión" pueda reutilizarla cuando el formulario no envía una nueva. */
+export async function getClientExternalDbPasswordEnc(id: string, scope: ClientScope): Promise<string | null> {
+  assertWithinScope(id, scope);
+  const client = await prisma.client.findUnique({ where: { id }, select: { externalDbPasswordEnc: true } });
+  return client?.externalDbPasswordEnc ?? null;
 }
 
 export async function deleteClient(id: string, scope: ClientScope): Promise<void> {

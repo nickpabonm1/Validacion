@@ -4,6 +4,12 @@
  * aislados del resto — y su propia marca (logo/color/favicon) que también puede definir para sus
  * hijos.
  */
+/** Motor de base de datos EXTERNA que un cliente puede conectar (ver `ClientDto.externalDbEngine`)
+ * — a diferencia de `DatabaseEngine`, aquí solo están los dos con soporte funcional real vía
+ * driver nativo (sin Prisma): MongoDB y Neo4j. */
+export const CLIENT_EXTERNAL_DB_ENGINES = ["MONGODB", "GRAPH_NEO4J"] as const;
+export type ClientExternalDbEngine = (typeof CLIENT_EXTERNAL_DB_ENGINES)[number];
+
 export interface ClientDto {
   id: string;
   name: string;
@@ -16,6 +22,14 @@ export interface ClientDto {
    * para la versión ya resuelta, usada al enviar un correo real). */
   emailSubjectTemplate: string | null;
   emailBodyTemplate: string | null;
+  /** Conexión a una base de datos EXTERNA propia de este cliente (MongoDB o Neo4j) — no
+   * hereda de un cliente padre (a diferencia de marca/plantilla): cada cliente que la necesite
+   * la configura para sí mismo. `externalDbEngine: null` = sin conexión externa configurada. */
+  externalDbEngine: ClientExternalDbEngine | null;
+  externalDbConnectionUri: string | null;
+  externalDbUsername: string | null;
+  externalDbPasswordConfigured: boolean;
+  externalDbDatabaseName: string | null;
   active: boolean;
   userCount: number;
   childCount: number;

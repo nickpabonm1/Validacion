@@ -1,21 +1,26 @@
 import { Router } from "express";
 import {
   CreateClientInputSchema,
+  TestClientDatabaseConnectionInputSchema,
   UpdateClientBrandingInputSchema,
+  UpdateClientDatabaseConnectionInputSchema,
   UpdateClientEmailTemplateInputSchema,
   UpdateClientInputSchema,
 } from "@fad-console/validation-schemas";
 import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middleware";
 import { logAudit } from "../audit/audit.service";
 import { buildClientScope } from "./client-scope";
+import { testClientExternalDbConnection } from "./client-database-connection.service";
 import {
   createClient,
   deleteClient,
   getClientBranding,
   getClientEmailTemplate,
+  getClientExternalDbPasswordEnc,
   listClients,
   updateClient,
   updateClientBranding,
+  updateClientDatabaseConnection,
   updateClientEmailTemplate,
 } from "./clients.service";
 
@@ -98,6 +103,32 @@ clientsRouter.put("/:id/email-template", requireRole("ADMIN"), async (req, res, 
     const client = await updateClientEmailTemplate(req.params.id as string, input, scope);
     await logAudit("UPDATE", "Client", client.id, auditContextFrom(req), { note: "emailTemplate" });
     res.json({ client });
+  } catch (error) {
+    next(error);
+  }
+});
+
+clientsRouter.put("/:id/database-connection", requireRole("ADMIN"), async (req, res, next) => {
+  try {
+    const scope = await buildClientScope(req.user!);
+    const input = UpdateClientDatabaseConnectionInputSchema.parse(req.body);
+    const client = await updateClientDatabaseConnection(req.params.id as string, input, scope);
+    await logAudit("UPDATE", "Client", client.id, auditContextFrom(req), { note: "databaseConnection", engine: input.engine });
+    res.json({ client });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Prueba una conexión real a la base de datos externa del cliente (MongoDB/Neo4j) sin
+ * necesariamente guardarla — si no se envía `password`, reutiliza la ya guardada del cliente. */
+clientsRouter.post("/:id/database-connection/test", requireRole("ADMIN"), async (req, res, next) => {
+  try {
+    const scope = await buildClientScope(req.user!);
+    const input = TestClientDatabaseConnectionInputSchema.parse(req.body);
+    const storedPasswordEnc = await getClientExternalDbPasswordEnc(req.params.id as string, scope);
+    const result = await testClientExternalDbConnection(input, storedPasswordEnc);
+    res.json({ result });
   } catch (error) {
     next(error);
   }

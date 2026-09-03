@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ClientBrandingDto, ClientDto, ClientEmailTemplateDto } from "@fad-console/shared-types";
+import type { ClientBrandingDto, ClientDto, ClientEmailTemplateDto, DatabaseConnectionTestResult } from "@fad-console/shared-types";
 import type {
   CreateClientInput,
+  TestClientDatabaseConnectionInput,
   UpdateClientBrandingInput,
+  UpdateClientDatabaseConnectionInput,
   UpdateClientEmailTemplateInput,
   UpdateClientInput,
 } from "@fad-console/validation-schemas";
@@ -74,6 +76,22 @@ export function useMyClientEmailTemplate() {
     queryKey: ["clients", "email-template", "me"],
     queryFn: () => api.get<{ template: ClientEmailTemplateDto }>("/clients/email-template").then((r) => r.template),
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useUpdateClientDatabaseConnection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateClientDatabaseConnectionInput }) =>
+      api.put<{ client: ClientDto }>(`/clients/${id}/database-connection`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clients"] }),
+  });
+}
+
+export function useTestClientDatabaseConnection() {
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: TestClientDatabaseConnectionInput }) =>
+      api.post<{ result: DatabaseConnectionTestResult }>(`/clients/${id}/database-connection/test`, input).then((r) => r.result),
   });
 }
 
