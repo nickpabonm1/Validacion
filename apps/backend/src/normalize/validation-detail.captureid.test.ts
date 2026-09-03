@@ -236,6 +236,41 @@ describe("buildNormalizedValidationDetail — nombre del cliente corregido con e
   });
 });
 
+describe("buildNormalizedValidationDetail — pasos administrativos con todo en null junto a pasos reales", () => {
+  it("no descarta los pasos reales cuando FAD incluye pasos administrativos (instructionsPermissions, processCompleted) con status/configuration/features en null", () => {
+    const detail = buildNormalizedValidationDetail({
+      validationId: "demo-null-steps",
+      processName: "PRUEBA",
+      environmentName: "Demo",
+      templateName: null,
+      requestSteps: { captureId: { order: 2, show: true } },
+      fallbackClient: { name: "PRUEBA", mail: "demo@example.com", phone: "+570000000000" },
+      createResponse: null,
+      stepResponse: {
+        success: true,
+        error: "",
+        code: null,
+        data: {
+          ...stepResponseFixture.data,
+          steps: {
+            instructionsPermissions: { id: null, order: 0, status: null, show: true, configuration: null, features: null, input: null, data: null },
+            ...stepResponseFixture.data.steps,
+            processCompleted: { id: null, order: 5, status: null, show: true, configuration: null, features: null, input: null, data: null },
+          },
+        },
+      } as never,
+      dataResponse: dataResponseFixture as never,
+    });
+
+    const captureId = detail.steps.find((s) => s.key === "captureId");
+    expect(captureId?.status).toBe("COMPLETED");
+    expect(detail.documentChecks.length).toBeGreaterThan(0);
+
+    const instructions = detail.steps.find((s) => s.key === "instructionsPermissions");
+    expect(instructions?.status).toBe("PENDING");
+  });
+});
+
 describe("buildNormalizedValidationDetail — sin datos de captureId", () => {
   it("documentChecks/governmentValidation/naatCheckResult/clientDetails no rompen con datos ausentes", () => {
     const detail = buildNormalizedValidationDetail({

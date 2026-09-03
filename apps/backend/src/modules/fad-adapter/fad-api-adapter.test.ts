@@ -178,6 +178,38 @@ describe("FadApiAdapter", () => {
   );
 
   it(
+    "no descarta la respuesta completa cuando FAD envía pasos administrativos con status/" +
+      "configuration/features en null (confirmado con un log real de sincronización: la " +
+      "respuesta traía captureId/liveness en COMPLETED junto a pasos como instructionsPermissions " +
+      "con todo en null, y antes del fix Zod rechazaba TODO el cuerpo por ese único detalle, " +
+      "dejando stepResponse en null y todos los pasos reales en PENDING)",
+    async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, { access_token: "tok", token_type: "bearer", expires_in: 3600 }))
+        .mockResolvedValueOnce(
+          jsonResponse(200, {
+            processName: "PRUEBA",
+            validation: { idProcess: "fd63564d-0296-44f7-ac15-0ca36499cea3", status: "FINISHED" },
+            client: { name: "PRUEBA", mail: "n1@gmail.com", phone: "20", photo: null },
+            steps: {
+              instructionsPermissions: { id: null, order: 0, status: null, show: true, configuration: null, features: null, input: null, data: null },
+              captureId: { id: "2fdce485", order: 2, status: "COMPLETED", show: true, configuration: {}, features: { provider: 1 }, data: {} },
+              processCompleted: { id: null, order: 5, status: null, show: true, configuration: null, features: null, input: null, data: null },
+            },
+          }),
+        );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const environment = buildEnvironment();
+      const result = await fadApiAdapter.getValidationStep(environment, "fd63564d-0296-44f7-ac15-0ca36499cea3");
+      expect(result.data.success).toBe(true);
+      expect(result.data.data?.steps?.captureId?.status).toBe("COMPLETED");
+      expect(result.data.data?.steps?.instructionsPermissions?.status).toBeNull();
+    },
+  );
+
+  it(
     "normaliza el error real de getValidationStep (GET) — {code,message} sin `success`, " +
       "confirmado con una respuesta real de FAD para un validationId inexistente",
     async () => {
