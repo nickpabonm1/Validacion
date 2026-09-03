@@ -5,3 +5,4 @@ export * from "./webhooks";
 export * from "./dto";
 export * from "./response-view";
 export * from "./normalized";
+export * from "./document-check-scoring";

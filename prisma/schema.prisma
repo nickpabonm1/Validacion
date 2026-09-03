@@ -431,3 +431,21 @@ model MessagingConfig {
 
   @@map("messaging_config")
 }
+
+/// Configuración global (no por ambiente) para puntuar `documentChecks` (Validación de ID del
+/// paso `captureId`): peso relativo por categoría (`categoryWeights`, JSON `Record<categoría,
+/// número>` — una categoría ausente pesa 1 por defecto) y un umbral de aprobación opcional
+/// (`passThreshold`, 0-100; `null` = sin umbral configurado, el reporte solo muestra el
+/// porcentaje sin veredicto). Fila única (id = "singleton"). El peso y el umbral son una decisión
+/// de negocio del operador, nunca algo que FAD indique — por eso son configurables en vez de
+/// estar codificados.
+model DocumentCheckScoringConfig {
+  id String @id @default("singleton")
+
+  categoryWeights String @default("{}")
+  passThreshold   Int?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("document_check_scoring_config")
+}

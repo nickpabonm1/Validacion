@@ -23,6 +23,7 @@ import { websdkFlowRouter } from "./modules/websdk/websdk-flow.routes";
 import { websdkShareRouter } from "./modules/websdk/websdk-share.routes";
 import { websdkSharePublicRouter } from "./modules/websdk/websdk-share-public.routes";
 import { messagingConfigRouter } from "./modules/messaging/messaging-config.routes";
+import { documentCheckScoringRouter } from "./modules/document-check-scoring/document-check-scoring.routes";
 import { errorHandler, notFoundHandler } from "./lib/errors";
 
 export function createApp(): express.Express {
@@ -85,6 +86,7 @@ export function createApp(): express.Express {
   // celular. El `token` opaco de un solo uso es la única credencial (ver websdk-share.service.ts).
   app.use("/api/public/websdk-share", websdkSharePublicRouter);
   app.use("/api/messaging-config", messagingConfigRouter);
+  app.use("/api/document-check-scoring", documentCheckScoringRouter);
 
   // El frontend compilado (apps/frontend/dist) se sirve desde el propio backend en producción
   // para simplificar el despliegue a un único proceso Node.

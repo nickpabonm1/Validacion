@@ -7,6 +7,8 @@ import {
   translateResultDescription,
   translateResultLabel,
 } from "../../lib/document-check-i18n";
+import { resultTone, type DocumentCheckTone } from "../../lib/document-check-score";
+import { DocumentCheckScoreCard } from "./DocumentCheckScoreCard";
 
 /** Orden y etiquetas de las 5 categorías de `steps.captureId.data.alerts`, igual que las
  * secciones que ya muestra el Portal FAD (confirmado con una respuesta real de FAD, no
@@ -31,17 +33,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   authenticity: "Autenticidad del documento",
 };
 
-/** `result` observados hasta ahora: "OK" (positivo) y "WAS_NOT_DONE" (no se ejecutó — neutral,
- * no es necesariamente un problema). Cualquier otro valor se trata como advertencia: FAD no ha
- * devuelto ningún otro nombre en las respuestas reales revisadas, así que no se asume que sea un
- * error grave, solo que amerita revisión. */
-function resultTone(result: string): "success" | "muted" | "warning" {
-  if (result === "OK") return "success";
-  if (result === "WAS_NOT_DONE") return "muted";
-  return "warning";
-}
-
-const TONE_ORDER: Record<"success" | "muted" | "warning", number> = { warning: 0, muted: 1, success: 2 };
+const TONE_ORDER: Record<DocumentCheckTone, number> = { warning: 0, muted: 1, success: 2 };
 
 /** Ordena poniendo primero lo que amerita revisión (advertencias), luego lo no realizado, y al
  * final lo correcto — así lo relevante queda visible sin desplazarse por decenas de filas "OK". */
@@ -106,6 +98,7 @@ export function DocumentChecksGroups({ checks }: { checks: NormalizedDocumentChe
 
   return (
     <div className="space-y-6">
+      <DocumentCheckScoreCard checks={checks} />
       {categories.map((category) => {
         const items = byCategory.get(category)!;
         const warningCount = items.filter((i) => resultTone(i.result) === "warning").length;
