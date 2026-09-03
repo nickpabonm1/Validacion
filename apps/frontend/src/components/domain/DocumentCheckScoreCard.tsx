@@ -45,7 +45,7 @@ export function DocumentCheckScoreCard({ checks }: { checks: NormalizedDocumentC
 
   if (!config) return null;
 
-  const score = computeDocumentCheckScore(checks, config.categoryWeights, config.passThreshold);
+  const score = computeDocumentCheckScore(checks, config.categoryWeights, config.passThreshold, config.treatNotDoneAsFailure);
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">

@@ -42,6 +42,35 @@ function stepResponseWith75PercentDocumentChecks(validationId: string) {
   });
 }
 
+/** Reproduce el caso real reportado: TODOS los checks vienen como "WAS_NOT_DONE" (el proveedor no
+ * ejecutó ninguna verificación cruzada para este documento). */
+function stepResponseWithAllChecksNotDone(validationId: string) {
+  return jsonResponse(200, {
+    processName: "PRUEBA",
+    validation: { idProcess: validationId, status: "FINISHED" },
+    client: { name: "PRUEBA", mail: "p@example.com", phone: "123", photo: null },
+    steps: {
+      captureId: {
+        id: "c1",
+        order: 1,
+        status: "COMPLETED",
+        show: true,
+        configuration: {},
+        features: { provider: 1 },
+        data: {
+          alerts: {
+            textCrossChecks: [
+              { type: { name: "Apellidos y nombres" }, result: { name: "WAS_NOT_DONE" } },
+              { type: { name: "Fecha de nacimiento" }, result: { name: "WAS_NOT_DONE" } },
+            ],
+            dateChecks: [{ type: { name: "Fecha de vencimiento" }, result: { name: "WAS_NOT_DONE" } }],
+          },
+        },
+      },
+    },
+  });
+}
+
 async function setup(processName: string) {
   const environment = await prisma.apiEnvironment.create({
     data: {
@@ -76,11 +105,11 @@ async function setup(processName: string) {
   return { executionId: execution.id, validationId };
 }
 
-function mockFadResponses(validationId: string) {
+function mockFadResponses(validationId: string, stepResponse: Response = stepResponseWith75PercentDocumentChecks(validationId)) {
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce(jsonResponse(200, { access_token: "tok", token_type: "bearer", expires_in: 3600 }))
-    .mockResolvedValueOnce(stepResponseWith75PercentDocumentChecks(validationId))
+    .mockResolvedValueOnce(stepResponse)
     .mockResolvedValueOnce(
       jsonResponse(200, { success: true, error: "", code: null, data: { client: { nombre: "PRUEBA" }, status: "FINISHED", idValidation: validationId } }),
     );
@@ -160,5 +189,35 @@ describe("Rechazo automático por no concordancia documental (Validación de ID 
     expect(res.status).toBe(200);
     expect(res.body.execution.result).not.toBe("REJECTED");
     expect(res.body.execution.normalized.documentCheckRejection).toBeNull();
+  });
+
+  it("con TODOS los checks WAS_NOT_DONE y treatNotDoneAsFailure en false (por defecto), NO se rechaza — no hay nada evaluado sobre lo cual decidir", async () => {
+    await request(app)
+      .put("/api/document-check-scoring")
+      .set("Cookie", adminCookie)
+      .send({ categoryWeights: {}, passThreshold: 70, treatNotDoneAsFailure: false });
+
+    const { executionId, validationId } = await setup("todos-no-realizado-neutro");
+    mockFadResponses(validationId, stepResponseWithAllChecksNotDone(validationId));
+
+    const res = await request(app).post(`/api/executions/${executionId}/sync`).set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.execution.result).not.toBe("REJECTED");
+    expect(res.body.execution.normalized.documentCheckRejection).toBeNull();
+  });
+
+  it("con TODOS los checks WAS_NOT_DONE y treatNotDoneAsFailure activo, SÍ se rechaza (0% de concordancia)", async () => {
+    await request(app)
+      .put("/api/document-check-scoring")
+      .set("Cookie", adminCookie)
+      .send({ categoryWeights: {}, passThreshold: 70, treatNotDoneAsFailure: true });
+
+    const { executionId, validationId } = await setup("todos-no-realizado-fallo");
+    mockFadResponses(validationId, stepResponseWithAllChecksNotDone(validationId));
+
+    const res = await request(app).post(`/api/executions/${executionId}/sync`).set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.execution.result).toBe("REJECTED");
+    expect(res.body.execution.normalized.documentCheckRejection).toEqual({ percentage: 0, threshold: 70 });
   });
 });

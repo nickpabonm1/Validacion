@@ -52,6 +52,7 @@ describe("document-check-scoring.routes: lectura para cualquier rol, escritura s
     const res = await request(app).get("/api/document-check-scoring").set("Cookie", operatorCookie);
     expect(res.status).toBe(200);
     expect(res.body.documentCheckScoringConfig.passThreshold).toBeNull();
+    expect(res.body.documentCheckScoringConfig.treatNotDoneAsFailure).toBe(false); // por defecto, sin configurar
   });
 
   it("un OPERATOR NO puede modificar la configuración", async () => {
@@ -66,11 +67,13 @@ describe("document-check-scoring.routes: lectura para cualquier rol, escritura s
     const putRes = await request(app)
       .put("/api/document-check-scoring")
       .set("Cookie", adminCookie)
-      .send({ categoryWeights: { authenticity: 5, imageQuality: 1 }, passThreshold: 90 });
+      .send({ categoryWeights: { authenticity: 5, imageQuality: 1 }, passThreshold: 90, treatNotDoneAsFailure: true });
     expect(putRes.status).toBe(200);
     expect(putRes.body.documentCheckScoringConfig.passThreshold).toBe(90);
+    expect(putRes.body.documentCheckScoringConfig.treatNotDoneAsFailure).toBe(true);
 
     const getRes = await request(app).get("/api/document-check-scoring").set("Cookie", operatorCookie);
     expect(getRes.body.documentCheckScoringConfig.categoryWeights).toEqual({ authenticity: 5, imageQuality: 1 });
+    expect(getRes.body.documentCheckScoringConfig.treatNotDoneAsFailure).toBe(true);
   });
 });

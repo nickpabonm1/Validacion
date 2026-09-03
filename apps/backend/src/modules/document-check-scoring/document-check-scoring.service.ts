@@ -11,6 +11,7 @@ export function toDocumentCheckScoringConfigDto(config: DocumentCheckScoringConf
   return {
     categoryWeights: fromJsonField<Record<string, number>>(config.categoryWeights, {}),
     passThreshold: config.passThreshold,
+    treatNotDoneAsFailure: config.treatNotDoneAsFailure,
     updatedAt: config.updatedAt.toISOString(),
   };
 }
@@ -29,6 +30,7 @@ export async function upsertDocumentCheckScoringConfig(input: DocumentCheckScori
   const data = {
     categoryWeights: toJsonField(input.categoryWeights),
     passThreshold: input.passThreshold,
+    treatNotDoneAsFailure: input.treatNotDoneAsFailure,
   };
   return prisma.documentCheckScoringConfig.upsert({
     where: { id: SINGLETON_ID },

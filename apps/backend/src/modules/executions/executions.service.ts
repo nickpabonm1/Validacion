@@ -45,7 +45,12 @@ function adapterFor(isDemo: boolean) {
  */
 async function applyDocumentCheckRejection(detail: NormalizedValidationDetail): Promise<void> {
   const config = toDocumentCheckScoringConfigDto(await getDocumentCheckScoringConfig());
-  const score = computeDocumentCheckScore(detail.documentChecks, config.categoryWeights, config.passThreshold);
+  const score = computeDocumentCheckScore(
+    detail.documentChecks,
+    config.categoryWeights,
+    config.passThreshold,
+    config.treatNotDoneAsFailure,
+  );
   if (score.passed === false && score.percentage !== null && config.passThreshold !== null) {
     detail.result = "REJECTED";
     detail.documentCheckRejection = { percentage: score.percentage, threshold: config.passThreshold };

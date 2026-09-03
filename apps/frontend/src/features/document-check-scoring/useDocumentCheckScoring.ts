@@ -17,6 +17,7 @@ export function useDocumentCheckScoringConfig() {
 export interface DocumentCheckScoringConfigInput {
   categoryWeights: Record<string, number>;
   passThreshold: number | null;
+  treatNotDoneAsFailure: boolean;
 }
 
 export function useUpdateDocumentCheckScoringConfig() {

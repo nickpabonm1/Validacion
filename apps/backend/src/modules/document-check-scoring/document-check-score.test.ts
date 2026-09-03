@@ -86,4 +86,35 @@ describe("computeDocumentCheckScore", () => {
     expect(authenticity?.percentage).toBe(50);
     expect(imageQuality?.percentage).toBe(100);
   });
+
+  describe("treatNotDoneAsFailure", () => {
+    it("con la bandera activa, WAS_NOT_DONE SÍ resta al porcentaje (cuenta como fallo)", () => {
+      const checks = [check({ result: "OK" }), check({ result: "WAS_NOT_DONE" }), check({ result: "WAS_NOT_DONE" })];
+      const score = computeDocumentCheckScore(checks, {}, null, true);
+      expect(score.totalWeight).toBe(3);
+      expect(score.achievedWeight).toBe(1);
+      expect(score.percentage).toBe(33.3);
+    });
+
+    it("con todos los checks WAS_NOT_DONE y la bandera activa, el porcentaje es 0% (no null) — puede disparar el rechazo automático", () => {
+      const checks = [check({ result: "WAS_NOT_DONE" }), check({ result: "WAS_NOT_DONE" })];
+      const score = computeDocumentCheckScore(checks, {}, 70, true);
+      expect(score.percentage).toBe(0);
+      expect(score.passed).toBe(false);
+    });
+
+    it("evaluatedCount/skippedCount reflejan lo que FAD realmente evaluó, sin importar la bandera", () => {
+      const checks = [check({ result: "OK" }), check({ result: "WAS_NOT_DONE" })];
+      const score = computeDocumentCheckScore(checks, {}, null, true);
+      expect(score.evaluatedCount).toBe(1);
+      expect(score.skippedCount).toBe(1);
+    });
+
+    it("por defecto (sin pasar la bandera), el comportamiento es el mismo que antes: WAS_NOT_DONE excluido", () => {
+      const checks = [check({ result: "OK" }), check({ result: "WAS_NOT_DONE" })];
+      const score = computeDocumentCheckScore(checks, {}, null);
+      expect(score.totalWeight).toBe(1);
+      expect(score.percentage).toBe(100);
+    });
+  });
 });

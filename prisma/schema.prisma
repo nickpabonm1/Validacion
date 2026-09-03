@@ -493,8 +493,9 @@ model MessagingConfig {
 model DocumentCheckScoringConfig {
   id String @id @default("singleton")
 
-  categoryWeights String @default("{}")
-  passThreshold   Int?
+  categoryWeights       String  @default("{}")
+  passThreshold         Int?
+  treatNotDoneAsFailure Boolean @default(false)
 
   updatedAt DateTime @updatedAt
 

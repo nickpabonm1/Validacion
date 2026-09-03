@@ -377,13 +377,14 @@ async function main() {
     },
   });
 
-  // Umbral de rechazo automático por no concordancia documental — 70%, el valor de negocio
-  // explícitamente pedido para esta consola. Editable en "Configuración de la respuesta"; sin
+  // Umbral de rechazo automático por no concordancia documental — 70%, contando también los
+  // checks "no realizados" por el proveedor como fallo: ambos son valores de negocio
+  // explícitamente pedidos para esta consola. Editable en "Configuración de la respuesta"; sin
   // pesos por categoría configurados (ponderación neutra) hasta que un ADMIN los ajuste.
   await prisma.documentCheckScoringConfig.upsert({
     where: { id: "singleton" },
     update: {},
-    create: { id: "singleton", categoryWeights: JSON.stringify({}), passThreshold: 70 },
+    create: { id: "singleton", categoryWeights: JSON.stringify({}), passThreshold: 70, treatNotDoneAsFailure: true },
   });
 
   console.log("");

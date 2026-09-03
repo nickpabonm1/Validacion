@@ -9,5 +9,6 @@ import { z } from "zod";
 export const DocumentCheckScoringConfigInputSchema = z.object({
   categoryWeights: z.record(z.number().min(0).max(100)).default({}),
   passThreshold: z.number().min(0).max(100).nullable(),
+  treatNotDoneAsFailure: z.boolean().default(false),
 });
 export type DocumentCheckScoringConfigInput = z.infer<typeof DocumentCheckScoringConfigInputSchema>;

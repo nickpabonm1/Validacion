@@ -17,12 +17,19 @@ export interface DocumentCheckScoringConfigDto {
   /** Porcentaje mínimo (0-100) para considerar la validación de documento "aprobada". `null` =
    * sin umbral configurado — el reporte solo muestra el porcentaje, sin veredicto. */
   passThreshold: number | null;
+  /** `false` (por defecto): un check "WAS_NOT_DONE" (el proveedor no lo ejecutó) no cuenta ni
+   * como acierto ni como fallo — queda fuera del porcentaje. `true`: lo cuenta como fallo (resta
+   * al porcentaje) — decisión de negocio explícita para instalaciones donde un check no
+   * ejecutado se considera falta de concordancia documental, no un dato simplemente ausente. Ver
+   * `computeDocumentCheckScore`. */
+  treatNotDoneAsFailure: boolean;
   updatedAt: string;
 }
 
-/** Resultado de puntuar `documentChecks` con un `DocumentCheckScoringConfigDto`. Los checks con
- * resultado "WAS_NOT_DONE" (no evaluados por FAD) se excluyen tanto del numerador como del
- * denominador — nunca se asume que "no evaluado" equivalga a correcto o incorrecto. */
+/** Resultado de puntuar `documentChecks` con un `DocumentCheckScoringConfigDto`. Por defecto, los
+ * checks con resultado "WAS_NOT_DONE" (no evaluados por FAD) se excluyen tanto del numerador como
+ * del denominador — nunca se asume que "no evaluado" equivalga a correcto o incorrecto, salvo que
+ * `treatNotDoneAsFailure` esté activo. */
 export interface DocumentCheckScore {
   totalWeight: number;
   achievedWeight: number;
@@ -57,17 +64,22 @@ function round1(value: number): number {
 /**
  * Puntúa `documentChecks` según un peso por categoría (una categoría sin peso configurado pesa 1
  * — ponderación neutra, es decir, cuenta simple de aciertos) y calcula un porcentaje y un
- * veredicto opcional contra `passThreshold`. Los checks con resultado "WAS_NOT_DONE" (FAD indica
- * explícitamente que no se evaluaron) se excluyen del cálculo: ni suman como acierto ni como
- * fallo, para no fabricar un juicio sobre algo que no se evaluó. El peso y el umbral son una
- * decisión de negocio del operador (`DocumentCheckScoringConfigDto`), nunca algo que este cálculo
- * decida por su cuenta. Usada tanto por el frontend (reporte, vista previa en vivo) como por el
- * backend (`executions.service.ts`, para decidir el rechazo automático).
+ * veredicto opcional contra `passThreshold`. Por defecto (`treatNotDoneAsFailure: false`), los
+ * checks con resultado "WAS_NOT_DONE" (FAD indica explícitamente que no se evaluaron) se excluyen
+ * del cálculo: ni suman como acierto ni como fallo. Con `treatNotDoneAsFailure: true`, esos mismos
+ * checks SÍ restan al porcentaje (cuentan como fallo) — una decisión de negocio explícita, nunca
+ * el comportamiento por defecto. `evaluatedCount`/`skippedCount` siempre reflejan lo que FAD
+ * realmente evaluó o no, sin importar esta bandera — es información sobre el proveedor, no sobre
+ * la política de puntuación. El peso y el umbral también son una decisión de negocio del operador
+ * (`DocumentCheckScoringConfigDto`), nunca algo que este cálculo decida por su cuenta. Usada tanto
+ * por el frontend (reporte, vista previa en vivo) como por el backend (`executions.service.ts`,
+ * para decidir el rechazo automático).
  */
 export function computeDocumentCheckScore(
   checks: NormalizedDocumentCheck[],
   categoryWeights: Record<string, number>,
   passThreshold: number | null,
+  treatNotDoneAsFailure = false,
 ): DocumentCheckScore {
   const byCategory = new Map<string, { totalWeight: number; achievedWeight: number }>();
   let totalWeight = 0;
@@ -79,9 +91,10 @@ export function computeDocumentCheckScore(
     const tone = resultTone(check.result);
     if (tone === "muted") {
       skippedCount += 1;
-      continue;
+      if (!treatNotDoneAsFailure) continue;
+    } else {
+      evaluatedCount += 1;
     }
-    evaluatedCount += 1;
     const weight = categoryWeights[check.category] ?? 1;
     const achieved = tone === "success" ? weight : 0;
 

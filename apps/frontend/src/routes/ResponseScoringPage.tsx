@@ -31,12 +31,14 @@ export function ResponseScoringPage() {
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [rejectionEnabled, setRejectionEnabled] = useState(false);
   const [threshold, setThreshold] = useState<string>(String(DEFAULT_REJECTION_THRESHOLD));
+  const [treatNotDoneAsFailure, setTreatNotDoneAsFailure] = useState(false);
 
   useEffect(() => {
     if (!config) return;
     setWeights(Object.fromEntries(categories.map((c) => [c, String(config.categoryWeights[c] ?? 1)])));
     setRejectionEnabled(config.passThreshold !== null);
     setThreshold(config.passThreshold === null ? String(DEFAULT_REJECTION_THRESHOLD) : String(config.passThreshold));
+    setTreatNotDoneAsFailure(config.treatNotDoneAsFailure);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
 
@@ -51,7 +53,7 @@ export function ResponseScoringPage() {
     const passThreshold = rejectionEnabled && Number.isFinite(parsedThreshold) ? Math.min(100, Math.max(0, parsedThreshold)) : null;
 
     try {
-      await updateConfig.mutateAsync({ categoryWeights: parsedWeights, passThreshold });
+      await updateConfig.mutateAsync({ categoryWeights: parsedWeights, passThreshold, treatNotDoneAsFailure });
       notify({ title: "Configuración de la respuesta guardada", tone: "success" });
     } catch (error) {
       notify({ title: "Error al guardar", description: (error as Error).message, tone: "error" });
@@ -97,6 +99,12 @@ export function ResponseScoringPage() {
                   </div>
                 ))}
               </div>
+              <InlineSwitchField
+                label="Tratar «Verificación no realizada» como fallo"
+                checked={treatNotDoneAsFailure}
+                onChange={setTreatNotDoneAsFailure}
+                hint="Cuando el proveedor no ejecuta un check (aparece como «La verificación NO se realizó»), por defecto no cuenta ni a favor ni en contra del porcentaje. Actívalo para que reste al porcentaje, igual que un check fallido — útil si un check no ejecutado también debe considerarse falta de concordancia documental."
+              />
             </CardContent>
           </Card>
 
