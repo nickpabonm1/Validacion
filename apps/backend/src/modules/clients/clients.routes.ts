@@ -1,9 +1,23 @@
 import { Router } from "express";
-import { CreateClientInputSchema, UpdateClientBrandingInputSchema, UpdateClientInputSchema } from "@fad-console/validation-schemas";
+import {
+  CreateClientInputSchema,
+  UpdateClientBrandingInputSchema,
+  UpdateClientEmailTemplateInputSchema,
+  UpdateClientInputSchema,
+} from "@fad-console/validation-schemas";
 import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middleware";
 import { logAudit } from "../audit/audit.service";
 import { buildClientScope } from "./client-scope";
-import { createClient, deleteClient, getClientBranding, listClients, updateClient, updateClientBranding } from "./clients.service";
+import {
+  createClient,
+  deleteClient,
+  getClientBranding,
+  getClientEmailTemplate,
+  listClients,
+  updateClient,
+  updateClientBranding,
+  updateClientEmailTemplate,
+} from "./clients.service";
 
 export const clientsRouter = Router();
 
@@ -15,6 +29,17 @@ clientsRouter.get("/branding", async (req, res, next) => {
   try {
     const branding = await getClientBranding(req.user!.clientId);
     res.json({ branding });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Cualquier rol autenticado puede leer la plantilla de correo ya resuelta (con herencia) de su
+ * propio cliente — la usa el flujo de envío de enlace de validación. */
+clientsRouter.get("/email-template", async (req, res, next) => {
+  try {
+    const template = await getClientEmailTemplate(req.user!.clientId);
+    res.json({ template });
   } catch (error) {
     next(error);
   }
@@ -60,6 +85,18 @@ clientsRouter.put("/:id/branding", requireRole("ADMIN"), async (req, res, next) 
     const input = UpdateClientBrandingInputSchema.parse(req.body);
     const client = await updateClientBranding(req.params.id as string, input, scope);
     await logAudit("UPDATE", "Client", client.id, auditContextFrom(req), { note: "branding" });
+    res.json({ client });
+  } catch (error) {
+    next(error);
+  }
+});
+
+clientsRouter.put("/:id/email-template", requireRole("ADMIN"), async (req, res, next) => {
+  try {
+    const scope = await buildClientScope(req.user!);
+    const input = UpdateClientEmailTemplateInputSchema.parse(req.body);
+    const client = await updateClientEmailTemplate(req.params.id as string, input, scope);
+    await logAudit("UPDATE", "Client", client.id, auditContextFrom(req), { note: "emailTemplate" });
     res.json({ client });
   } catch (error) {
     next(error);

@@ -408,7 +408,12 @@ function ResultStep({
       </div>
 
       {launchUrl ? (
-        <ShareLinkPanel url={launchUrl} processName={result.processName} />
+        <ShareLinkPanel
+          url={launchUrl}
+          processName={result.processName}
+          executionId={result.id}
+          defaultEmail={result.normalized?.client.email ?? result.requestPayload?.client.mail ?? undefined}
+        />
       ) : environmentLaunchTemplate ? (
         <p className="text-xs text-muted-foreground">
           Revela key/vector para generar el enlace del proceso, el código QR y las opciones para compartirlo.

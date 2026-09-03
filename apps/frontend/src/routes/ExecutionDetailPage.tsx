@@ -162,7 +162,12 @@ export function ExecutionDetailPage() {
       </div>
 
       {launchUrl ? (
-        <ShareLinkPanel url={launchUrl} processName={execution.processName} />
+        <ShareLinkPanel
+          url={launchUrl}
+          processName={execution.processName}
+          executionId={execution.id}
+          defaultEmail={execution.normalized?.client.email ?? execution.requestPayload?.client.mail ?? undefined}
+        />
       ) : environment?.launchUrlTemplate ? (
         <p className="text-xs text-muted-foreground">
           Revela key/vector arriba para generar el enlace del proceso, el código QR y las opciones para compartirlo.

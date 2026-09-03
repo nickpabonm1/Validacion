@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ClientBrandingDto, ClientDto } from "@fad-console/shared-types";
-import type { CreateClientInput, UpdateClientBrandingInput, UpdateClientInput } from "@fad-console/validation-schemas";
+import type { ClientBrandingDto, ClientDto, ClientEmailTemplateDto } from "@fad-console/shared-types";
+import type {
+  CreateClientInput,
+  UpdateClientBrandingInput,
+  UpdateClientEmailTemplateInput,
+  UpdateClientInput,
+} from "@fad-console/validation-schemas";
 import { api } from "../../lib/api-client";
 
 export function useClients() {
@@ -46,6 +51,29 @@ export function useUpdateClientBranding() {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["clients", "branding", "me"] });
     },
+  });
+}
+
+export function useUpdateClientEmailTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateClientEmailTemplateInput }) =>
+      api.put<{ client: ClientDto }>(`/clients/${id}/email-template`, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["clients", "email-template", "me"] });
+    },
+  });
+}
+
+/** Plantilla de correo ya resuelta (con herencia) del cliente de la sesión actual — la usa el
+ * flujo de envío de enlace de validación en el backend; expuesta aquí solo por si el frontend
+ * necesita mostrarla (p. ej. una vista previa de lo que realmente se enviará). */
+export function useMyClientEmailTemplate() {
+  return useQuery({
+    queryKey: ["clients", "email-template", "me"],
+    queryFn: () => api.get<{ template: ClientEmailTemplateDto }>("/clients/email-template").then((r) => r.template),
+    staleTime: 5 * 60_000,
   });
 }
 

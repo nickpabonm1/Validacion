@@ -11,6 +11,11 @@ export interface ClientDto {
   logoDataUrl: string | null;
   faviconDataUrl: string | null;
   primaryColor: string | null;
+  /** Valores PROPIOS del cliente (sin resolver herencia) — `null` = no definió su propia
+   * plantilla, hereda la del padre más cercano que sí la tenga (ver `ClientEmailTemplateDto`
+   * para la versión ya resuelta, usada al enviar un correo real). */
+  emailSubjectTemplate: string | null;
+  emailBodyTemplate: string | null;
   active: boolean;
   userCount: number;
   childCount: number;
@@ -28,4 +33,15 @@ export interface ClientBrandingDto {
   logoDataUrl: string | null;
   faviconDataUrl: string | null;
   primaryColor: string | null;
+}
+
+/** Plantilla de correo YA RESUELTA (con herencia aplicada, o la plantilla por defecto de la
+ * consola si ningún cliente en la cadena definió una propia) — lo que realmente se usa al enviar
+ * el enlace de un proceso de validación. */
+export interface ClientEmailTemplateDto {
+  subject: string;
+  bodyHtml: string;
+  /** `true` cuando el cliente (o el usuario de plataforma) usa la plantilla por defecto de la
+   * consola, sin personalizar nada todavía. */
+  isDefault: boolean;
 }

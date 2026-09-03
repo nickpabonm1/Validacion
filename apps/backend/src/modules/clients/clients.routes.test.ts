@@ -112,6 +112,66 @@ describe("Jerarquía de clientes (multi-tenant): aislamiento por subárbol", () 
     expect(res.body.branding.clientId).toBeNull();
   });
 
+  it("un usuario de plataforma sin cliente usa la plantilla de correo por defecto de la consola", async () => {
+    const res = await request(app).get("/api/clients/email-template").set("Cookie", platformAdminCookie);
+    expect(res.body.template.isDefault).toBe(true);
+    expect(res.body.template.subject).toContain("{{processName}}");
+  });
+
+  it("el admin del cliente A NO puede configurar la plantilla de correo del cliente D (fuera de su subárbol)", async () => {
+    const res = await request(app)
+      .put(`/api/clients/${clientDId}/email-template`)
+      .set("Cookie", clientAAdminCookie)
+      .send({ emailSubjectTemplate: "Hackeado {{processName}}" });
+    expect(res.status).toBe(403);
+  });
+
+  it("el admin del cliente A puede configurar su propia plantilla de correo, y su usuario la ve resuelta (sin isDefault)", async () => {
+    const putRes = await request(app)
+      .put(`/api/clients/${clientAId}/email-template`)
+      .set("Cookie", clientAAdminCookie)
+      .send({ emailSubjectTemplate: "Bienvenido a {{clientName}}", emailBodyTemplate: "<p>Enlace: {{link}}</p>" });
+    expect(putRes.status).toBe(200);
+    expect(putRes.body.client.emailSubjectTemplate).toBe("Bienvenido a {{clientName}}");
+
+    const getRes = await request(app).get("/api/clients/email-template").set("Cookie", clientAAdminCookie);
+    expect(getRes.body.template.isDefault).toBe(false);
+    expect(getRes.body.template.subject).toBe("Bienvenido a {{clientName}}");
+  });
+
+  it("un hijo sin plantilla propia hereda la plantilla del cliente A (su padre)", async () => {
+    const childRes = await request(app).post("/api/clients").set("Cookie", clientAAdminCookie).send({ name: "Hijo heredero" });
+    const childId = childRes.body.client.id;
+
+    await prisma.user.create({
+      data: {
+        name: "Admin de Hijo heredero",
+        email: "admin.hijoheredero@example.com",
+        passwordHash: await hashPassword("SuperSegura123!"),
+        role: "ADMIN",
+        active: true,
+        clientId: childId,
+      },
+    });
+    const childCookie = await login("admin.hijoheredero@example.com");
+
+    const res = await request(app).get("/api/clients/email-template").set("Cookie", childCookie);
+    expect(res.body.template.isDefault).toBe(false);
+    expect(res.body.template.subject).toBe("Bienvenido a {{clientName}}");
+  });
+
+  it("borrar la plantilla propia (string vacío) la restaura a heredar/por defecto", async () => {
+    const res = await request(app)
+      .put(`/api/clients/${clientAId}/email-template`)
+      .set("Cookie", clientAAdminCookie)
+      .send({ emailSubjectTemplate: "", emailBodyTemplate: "" });
+    expect(res.status).toBe(200);
+    expect(res.body.client.emailSubjectTemplate).toBeNull();
+
+    const getRes = await request(app).get("/api/clients/email-template").set("Cookie", clientAAdminCookie);
+    expect(getRes.body.template.isDefault).toBe(true);
+  });
+
   it("un ambiente creado por el admin del cliente A queda asignado a A, y el admin de A lo ve en su listado", async () => {
     const res = await request(app)
       .post("/api/environments")

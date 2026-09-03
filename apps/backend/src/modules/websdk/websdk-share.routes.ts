@@ -46,6 +46,7 @@ websdkShareRouter.post("/:id/send", async (req, res, next) => {
         processName,
         environmentName: link.environment.name,
         publicUrl,
+        clientId: link.environment.clientId,
       });
       await logAudit("SHARE_LINK_SENT", "WebSdkShareLink", link.id, auditContextFrom(req), { channel: "EMAIL" });
       res.json({ delivered: true, messageId: result.messageId });

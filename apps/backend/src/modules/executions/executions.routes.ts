@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { ExecuteValidationInputSchema } from "@fad-console/validation-schemas";
+import { ExecuteValidationInputSchema, SendExecutionEmailInputSchema } from "@fad-console/validation-schemas";
 import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middleware";
 import { logAudit } from "../audit/audit.service";
 import { buildClientScope } from "../clients/client-scope";
+import { sendShareLinkEmail } from "../messaging/email.service";
 import {
   createExecution,
   getExecutionOrThrow,
@@ -100,6 +101,28 @@ executionsRouter.post("/:id/sync", requireRole("ADMIN", "OPERATOR", "AUDITOR", "
     await syncExecutionStatus(req.params.id as string);
     await logAudit("QUERY_VALIDATION", "ValidationExecution", req.params.id as string, auditContextFrom(req));
     res.json({ execution: toDetailDto(await getExecutionOrThrow(req.params.id as string)) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Envía el enlace de captura (ya armado en el frontend con key/vector revelados, ver
+ * `ShareLinkPanel`) por correo, con la plantilla propia del cliente dueño del ambiente (o la
+ * heredada, o la de la consola por defecto — ver `email.service.ts`). */
+executionsRouter.post("/:id/send-email", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (req, res, next) => {
+  try {
+    const scope = await buildClientScope(req.user!);
+    const execution = await getExecutionOrThrow(req.params.id as string, scope);
+    const input = SendExecutionEmailInputSchema.parse(req.body);
+    const result = await sendShareLinkEmail({
+      to: input.to,
+      processName: execution.processName,
+      environmentName: execution.environment.name,
+      publicUrl: input.publicUrl,
+      clientId: execution.environment.clientId,
+    });
+    await logAudit("SHARE_LINK_SENT", "ValidationExecution", execution.id, auditContextFrom(req), { channel: "EMAIL" });
+    res.json({ delivered: true, messageId: result.messageId });
   } catch (error) {
     next(error);
   }

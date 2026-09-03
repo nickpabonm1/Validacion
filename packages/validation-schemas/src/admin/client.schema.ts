@@ -22,3 +22,11 @@ export const UpdateClientBrandingInputSchema = z.object({
   primaryColor: z.union([z.literal(""), z.string().regex(HEX_COLOR, "Debe ser un color hex, p. ej. #1d4ed8")]).optional(),
 });
 export type UpdateClientBrandingInput = z.infer<typeof UpdateClientBrandingInputSchema>;
+
+/** Vacío (`""`) borra la plantilla propia del cliente (vuelve a heredar); `undefined` = no
+ * cambiar. */
+export const UpdateClientEmailTemplateInputSchema = z.object({
+  emailSubjectTemplate: z.union([z.literal(""), z.string().min(1).max(300)]).optional(),
+  emailBodyTemplate: z.union([z.literal(""), z.string().min(1).max(20000)]).optional(),
+});
+export type UpdateClientEmailTemplateInput = z.infer<typeof UpdateClientEmailTemplateInputSchema>;

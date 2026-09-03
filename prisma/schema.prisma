@@ -64,6 +64,14 @@ model Client {
   /// Color hex (p. ej. "#1d4ed8") aplicado como acento de marca en la interfaz del cliente.
   primaryColor   String?
 
+  /// Plantilla del correo que se envía al iniciar un proceso de validación (asunto + cuerpo
+  /// HTML), con placeholders `{{processName}}`, `{{environmentName}}`, `{{clientName}}`,
+  /// `{{link}}`, `{{logo}}` (ver messaging/email-template.ts). `null` = hereda la del cliente
+  /// padre más cercano que sí tenga una, y si ninguno la define, se usa la plantilla por
+  /// defecto de la consola — igual patrón de herencia que logo/color/favicon.
+  emailSubjectTemplate String?
+  emailBodyTemplate    String?
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

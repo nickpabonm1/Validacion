@@ -38,8 +38,22 @@ export function notFoundHandler(_req: Request, res: Response): void {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Ruta no encontrada" } });
 }
 
+/** Detecta un `ZodError` de forma estructural, no solo con `instanceof`: los esquemas de
+ * `@fad-console/validation-schemas` (un paquete del monorepo) y los definidos aquí mismo pueden
+ * terminar resolviendo a instancias de la clase `ZodError` de dos copias distintas del paquete
+ * `zod` en tiempo de ejecución (confirmado en pruebas: Vitest empaqueta las dependencias del
+ * workspace por separado de las del paquete raíz, y `instanceof` falla entre esas dos copias aun
+ * siendo la misma versión) — sin este chequeo estructural, CUALQUIER error de validación de body
+ * en toda la app se reportaba como 500 en vez de 400. */
+function isZodError(err: unknown): err is ZodError {
+  return (
+    err instanceof ZodError ||
+    (typeof err === "object" && err !== null && (err as { name?: unknown }).name === "ZodError" && Array.isArray((err as { issues?: unknown }).issues))
+  );
+}
+
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
-  if (err instanceof ZodError) {
+  if (isZodError(err)) {
     res.status(400).json({
       error: {
         code: "VALIDATION_ERROR",

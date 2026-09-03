@@ -113,3 +113,10 @@ export function useRevealSecret() {
       api.post<{ value: string; masked: string }>(`/executions/${id}/reveal/${field}`),
   });
 }
+
+export function useSendExecutionEmail() {
+  return useMutation({
+    mutationFn: ({ id, to, publicUrl }: { id: string; to: string; publicUrl: string }) =>
+      api.post<{ delivered: boolean; messageId: string }>(`/executions/${id}/send-email`, { to, publicUrl }),
+  });
+}

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Plus, Trash2, Settings2, Building2 } from "lucide-react";
+import { Plus, Trash2, Settings2, Building2, Mail } from "lucide-react";
 import type { ClientDto } from "@fad-console/shared-types";
 import {
   useClients,
   useCreateClient,
   useUpdateClient,
   useUpdateClientBranding,
+  useUpdateClientEmailTemplate,
   useDeleteClient,
 } from "../features/clients/useClients";
 import { PageHeader, EmptyState, Skeleton } from "../components/ui/misc";
@@ -15,6 +16,27 @@ import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "../components/ui/dialog";
 import { useToast } from "../components/ui/toast";
+
+// Mismos valores por defecto que `apps/backend/src/modules/messaging/email-template.ts` — se
+// duplican aquí solo como texto de referencia para la vista previa del editor (el envío real
+// siempre usa la plantilla que resuelve el backend).
+const DEFAULT_EMAIL_SUBJECT_TEMPLATE = "{{processName}} — verificación de identidad";
+const DEFAULT_EMAIL_BODY_TEMPLATE =
+  `<p>Te invitamos a completar tu verificación de identidad (<strong>{{processName}}</strong>).</p>` +
+  `<p><a href="{{link}}">Toca aquí desde tu celular para continuar</a></p>` +
+  `<p style="color:#666;font-size:12px">Este enlace expira en poco tiempo y solo puede usarse una vez.</p>`;
+
+function renderPreview(template: string, client: ClientDto): string {
+  const logo = client.logoDataUrl
+    ? `<img src="${client.logoDataUrl}" alt="" style="max-height:48px;max-width:220px;display:block;margin-bottom:16px" />`
+    : "";
+  return template
+    .replace(/\{\{\s*processName\s*\}\}/g, "Onboarding cliente")
+    .replace(/\{\{\s*environmentName\s*\}\}/g, "Producción")
+    .replace(/\{\{\s*clientName\s*\}\}/g, client.name)
+    .replace(/\{\{\s*link\s*\}\}/g, "https://ejemplo.invalid/v/abc123")
+    .replace(/\{\{\s*logo\s*\}\}/g, logo);
+}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -146,11 +168,107 @@ function BrandingDialog({ client, open, onOpenChange }: { client: ClientDto; ope
   );
 }
 
+function EmailTemplateDialog({ client, open, onOpenChange }: { client: ClientDto; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { notify } = useToast();
+  const updateTemplate = useUpdateClientEmailTemplate();
+  const [subject, setSubject] = useState(client.emailSubjectTemplate ?? "");
+  const [bodyHtml, setBodyHtml] = useState(client.emailBodyTemplate ?? "");
+
+  const hasOwnTemplate = Boolean(client.emailSubjectTemplate || client.emailBodyTemplate);
+  const previewSubject = renderPreview(subject || DEFAULT_EMAIL_SUBJECT_TEMPLATE, client);
+  const previewBody = renderPreview(bodyHtml || DEFAULT_EMAIL_BODY_TEMPLATE, client);
+
+  async function handleSave() {
+    try {
+      await updateTemplate.mutateAsync({ id: client.id, input: { emailSubjectTemplate: subject, emailBodyTemplate: bodyHtml } });
+      notify({ title: "Plantilla de correo actualizada", tone: "success" });
+      onOpenChange(false);
+    } catch (error) {
+      notify({ title: "Error al guardar la plantilla", description: (error as Error).message, tone: "error" });
+    }
+  }
+
+  async function handleRestoreDefault() {
+    setSubject("");
+    setBodyHtml("");
+    try {
+      await updateTemplate.mutateAsync({ id: client.id, input: { emailSubjectTemplate: "", emailBodyTemplate: "" } });
+      notify({ title: "Plantilla restaurada: hereda la del cliente padre o la de la consola", tone: "success" });
+    } catch (error) {
+      notify({ title: "Error al restaurar la plantilla", description: (error as Error).message, tone: "error" });
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Plantilla de correo de {client.name}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email-subject">Asunto</Label>
+              <Input
+                id="email-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder={DEFAULT_EMAIL_SUBJECT_TEMPLATE}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email-body">Cuerpo (HTML)</Label>
+              <textarea
+                id="email-body"
+                value={bodyHtml}
+                onChange={(e) => setBodyHtml(e.target.value)}
+                placeholder={DEFAULT_EMAIL_BODY_TEMPLATE}
+                rows={12}
+                className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Placeholders disponibles: <code>{"{{processName}}"}</code>, <code>{"{{environmentName}}"}</code>,{" "}
+              <code>{"{{clientName}}"}</code>, <code>{"{{link}}"}</code> (enlace de validación) y <code>{"{{logo}}"}</code> (logo
+              de {client.name}, si tiene uno configurado).
+            </p>
+            {!hasOwnTemplate ? (
+              <p className="text-xs text-muted-foreground">
+                {client.name} todavía no tiene una plantilla propia: hereda la del cliente padre más cercano que sí tenga una,
+                o la plantilla por defecto de la consola.
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Vista previa (con datos de ejemplo)</Label>
+            <div className="rounded-md border border-border bg-white p-3">
+              <p className="mb-2 border-b border-border pb-2 text-sm font-medium text-black">{previewSubject}</p>
+              <div className="text-sm text-black" dangerouslySetInnerHTML={{ __html: previewBody }} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => void handleRestoreDefault()} disabled={updateTemplate.isPending}>
+            Restaurar por defecto
+          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={updateTemplate.isPending}>
+            Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ClientRow({ client, depth, onAddChild }: { client: ClientDto; depth: number; onAddChild: (parentId: string) => void }) {
   const { notify } = useToast();
   const updateClient = useUpdateClient();
   const deleteClient = useDeleteClient();
   const [brandingOpen, setBrandingOpen] = useState(false);
+  const [emailTemplateOpen, setEmailTemplateOpen] = useState(false);
 
   const canDelete = client.userCount === 0 && client.childCount === 0 && client.environmentCount === 0;
 
@@ -181,6 +299,9 @@ function ClientRow({ client, depth, onAddChild }: { client: ClientDto; depth: nu
         <Button variant="ghost" size="icon" aria-label="Marca" onClick={() => setBrandingOpen(true)}>
           <Settings2 className="h-4 w-4" />
         </Button>
+        <Button variant="ghost" size="icon" aria-label="Plantilla de correo" onClick={() => setEmailTemplateOpen(true)}>
+          <Mail className="h-4 w-4" />
+        </Button>
         <button type="button" onClick={() => updateClient.mutate({ id: client.id, input: { active: !client.active } })}>
           <Badge tone={client.active ? "success" : "neutral"}>{client.active ? "Activo" : "Inactivo"}</Badge>
         </button>
@@ -203,6 +324,7 @@ function ClientRow({ client, depth, onAddChild }: { client: ClientDto; depth: nu
         </Button>
       </div>
       <BrandingDialog client={client} open={brandingOpen} onOpenChange={setBrandingOpen} />
+      <EmailTemplateDialog client={client} open={emailTemplateOpen} onOpenChange={setEmailTemplateOpen} />
     </div>
   );
 }
