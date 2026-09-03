@@ -24,9 +24,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import { useToast } from "../components/ui/toast";
 import { parsePostmanCollection, type PostmanImportResult } from "../lib/postman-import";
 import { WebSdkConfigForm } from "../components/domain/WebSdkConfigForm";
+import { useClients } from "../features/clients/useClients";
 
 const BLANK: ApiEnvironmentInput = {
   name: "",
+  clientId: undefined,
   environmentType: "UATHA",
   baseUrl: "",
   active: true,
@@ -48,6 +50,7 @@ const BLANK: ApiEnvironmentInput = {
 function toFormValues(env: ApiEnvironmentDto): ApiEnvironmentInput {
   return {
     name: env.name,
+    clientId: env.clientId ?? undefined,
     description: env.description ?? undefined,
     environmentType: env.environmentType,
     baseUrl: env.baseUrl,
@@ -94,6 +97,7 @@ export function EnvironmentsPage() {
     resolver: zodResolver(ApiEnvironmentInputSchema),
     defaultValues: BLANK,
   });
+  const { data: clients } = useClients();
 
   useEffect(() => {
     reset(selected ? toFormValues(selected) : BLANK);
@@ -306,6 +310,22 @@ export function EnvironmentsPage() {
                       <option value="PRODUCTION">PRODUCTION</option>
                     </Select>
                   </Field>
+                  {clients && clients.length > 0 ? (
+                    <Field label="Cliente" htmlFor="clientId" hint="Vacío = tu propio cliente (o de plataforma, sin restricción, si eres administrador global).">
+                      <Select
+                        id="clientId"
+                        value={watch("clientId") ?? ""}
+                        onChange={(e) => setValue("clientId", e.target.value || undefined, { shouldDirty: true })}
+                      >
+                        <option value="">— Sin especificar —</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  ) : null}
                   <Field label="URL base" htmlFor="baseUrl" hint="Ej. https://uatha.firmaautografa.com">
                     <Input id="baseUrl" {...register("baseUrl")} />
                   </Field>

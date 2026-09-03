@@ -2,15 +2,17 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middleware";
 import { logAudit } from "../audit/audit.service";
+import { buildClientScope } from "../clients/client-scope";
 import { deleteSetting, getDashboardStats, listSettings, upsertSetting } from "./settings.service";
 
 export const settingsRouter = Router();
 
 settingsRouter.use(requireAuth);
 
-settingsRouter.get("/dashboard", async (_req, res, next) => {
+settingsRouter.get("/dashboard", async (req, res, next) => {
   try {
-    const stats = await getDashboardStats();
+    const scope = await buildClientScope(req.user!);
+    const stats = await getDashboardStats(scope);
     res.json({ stats });
   } catch (error) {
     next(error);

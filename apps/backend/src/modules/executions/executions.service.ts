@@ -15,6 +15,7 @@ import { credentialEncryptionService } from "../credentials/credential-encryptio
 import { fadApiAdapter } from "../fad-adapter/fad-api-adapter";
 import { fadDemoAdapter } from "../fad-adapter/fad-demo-adapter";
 import { hasMinimumCredentials, getEnvironmentOrThrow } from "../environments/environments.service";
+import { assertWithinScope, type ClientScope } from "../clients/client-scope";
 import { buildNormalizedValidationDetail } from "../../normalize/validation-detail";
 import { maskEmail, maskName } from "../../normalize/mask";
 import { normalizeValidationStatus, normalizeResult } from "../../normalize/status";
@@ -157,7 +158,7 @@ export interface ExecutionFilters {
   search?: string;
 }
 
-export async function listExecutions(filters: ExecutionFilters) {
+export async function listExecutions(filters: ExecutionFilters, scope?: ClientScope) {
   const where: Record<string, unknown> = {};
   if (filters.status) where.normalizedStatus = filters.status;
   if (filters.environmentId) where.environmentId = filters.environmentId;
@@ -169,6 +170,9 @@ export async function listExecutions(filters: ExecutionFilters) {
       { clientEmailMasked: { contains: filters.search } },
     ];
   }
+  if (scope?.allowedIds !== undefined && scope?.allowedIds !== null) {
+    where.environment = { clientId: { in: scope.allowedIds } };
+  }
   return prisma.validationExecution.findMany({
     where,
     include: { environment: true, template: true, createdBy: true },
@@ -177,12 +181,13 @@ export async function listExecutions(filters: ExecutionFilters) {
   });
 }
 
-export async function getExecutionOrThrow(id: string) {
+export async function getExecutionOrThrow(id: string, scope?: ClientScope) {
   const execution = await prisma.validationExecution.findUnique({
     where: { id },
     include: { environment: true, template: true, steps: true, webhookEvents: { orderBy: { receivedAt: "desc" } } },
   });
   if (!execution) throw AppError.notFound("Ejecución no encontrada");
+  if (scope) assertWithinScope(execution.environment.clientId, scope);
   return execution;
 }
 

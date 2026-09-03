@@ -27,6 +27,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  /// `null` = usuario de plataforma (acceso global, comportamiento histórico previo a la
+  /// jerarquía de clientes). Con un cliente asignado, el usuario queda confinado a ese cliente y
+  /// a sus hijos (ver clients/client-scope.ts) — nunca ve ni administra otros clientes.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
   createdTemplates ValidationTemplate[]  @relation("TemplateCreatedBy")
   updatedTemplates ValidationTemplate[]  @relation("TemplateUpdatedBy")
   executions       ValidationExecution[] @relation("ExecutionCreatedBy")
@@ -35,6 +41,37 @@ model User {
   shareLinks       WebSdkShareLink[]     @relation("ShareLinkCreatedBy")
 
   @@map("users")
+}
+
+/// Jerarquía de clientes (multi-tenant): un cliente puede tener clientes "hijos"
+/// (`parentClientId`), cada uno con sus propios usuarios (login) y ambientes/credenciales FAD,
+/// aislados del resto — un usuario con `clientId` asignado solo ve su propio cliente y su
+/// subárbol de hijos (ver `getClientSubtreeIds` en clients/client-scope.ts). Un usuario de
+/// plataforma (`clientId: null`) sigue viendo todo, igual que antes de esta jerarquía. El logo/
+/// color/favicon son la personalización de marca ("white-label") que un cliente ve al entrar, y
+/// que también puede definir para sus propios hijos.
+model Client {
+  id             String  @id @default(uuid())
+  name           String
+  parentClientId String?
+  parentClient   Client? @relation("ClientHierarchy", fields: [parentClientId], references: [id], onDelete: Cascade)
+  children       Client[] @relation("ClientHierarchy")
+
+  /// Data URL (base64) — igual patrón que NormalizedMediaAsset.dataUrl, sin infraestructura de
+  /// archivos aparte.
+  logoDataUrl    String?
+  faviconDataUrl String?
+  /// Color hex (p. ej. "#1d4ed8") aplicado como acento de marca en la interfaz del cliente.
+  primaryColor   String?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  environments ApiEnvironment[]
+
+  @@map("clients")
 }
 
 model ApiEnvironment {
@@ -82,6 +119,12 @@ model ApiEnvironment {
   /// consola solo lo configura/monitorea). WEB_SDK habilita el flujo de captura embebida
   /// (Acuant + Facetec vía @fad-producto/fad-sdk) documentado en `webSdkConfig`.
   integrationModel String @default("API_BY_STEPS")
+
+  /// `null` = ambiente de plataforma (histórico, visible solo para usuarios de plataforma). Con
+  /// un cliente asignado, el ambiente (y sus credenciales/ejecuciones) queda dentro del subárbol
+  /// de ese cliente — ver `clientId` en `User`.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

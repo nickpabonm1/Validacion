@@ -6,6 +6,7 @@ import { CreateUserInputSchema, type CreateUserInput } from "@fad-console/valida
 import type { UserRole } from "@fad-console/shared-types";
 import { useAuth } from "../lib/auth-context";
 import { useUsersAdmin, useCreateUserAdmin, useUpdateUserAdmin, useDeleteUserAdmin } from "../features/users/useUsersAdmin";
+import { useClients } from "../features/clients/useClients";
 import { PageHeader, Skeleton } from "../components/ui/misc";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -23,6 +24,8 @@ export function UsersPage() {
   const deleteUser = useDeleteUserAdmin();
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
+  const [clientId, setClientId] = useState("");
+  const { data: clients } = useClients();
 
   const { register, handleSubmit, reset, formState } = useForm<CreateUserInput>({
     resolver: zodResolver(CreateUserInputSchema),
@@ -38,7 +41,10 @@ export function UsersPage() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button
-                onClick={() => reset({ name: "", email: "", password: "", role: "OPERATOR", active: true })}
+                onClick={() => {
+                  reset({ name: "", email: "", password: "", role: "OPERATOR", active: true });
+                  setClientId("");
+                }}
               >
                 <Plus className="h-4 w-4" /> Nuevo usuario
               </Button>
@@ -51,7 +57,7 @@ export function UsersPage() {
                 className="space-y-3"
                 onSubmit={handleSubmit(async (values) => {
                   try {
-                    await createUser.mutateAsync(values);
+                    await createUser.mutateAsync({ ...values, clientId: clientId || undefined });
                     notify({ title: "Usuario creado", tone: "success" });
                     setOpen(false);
                   } catch (error) {
@@ -65,6 +71,18 @@ export function UsersPage() {
                 <Field label="Correo" htmlFor="email">
                   <Input id="email" type="email" {...register("email")} />
                 </Field>
+                {clients && clients.length > 0 ? (
+                  <Field label="Cliente" htmlFor="clientId" hint="Vacío = tu propio cliente (o de plataforma, sin restricción, si eres administrador global).">
+                    <Select id="clientId" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                      <option value="">— Sin especificar —</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : null}
                 <Field label="Contraseña" htmlFor="password" hint="Mínimo 10 caracteres.">
                   <Input id="password" type="password" {...register("password")} />
                 </Field>

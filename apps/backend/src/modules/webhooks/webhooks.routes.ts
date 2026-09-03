@@ -4,6 +4,7 @@ import { z } from "zod";
 import { fromJsonField } from "../../lib/json-field";
 import { logger } from "../../lib/logger";
 import { requireAuth, requireRole } from "../auth/auth.middleware";
+import { buildClientScope } from "../clients/client-scope";
 import { isWebhookRequestAuthorized } from "./webhook-auth";
 import { getWebhookEvent, ingestWebhook, listWebhookEvents } from "./webhooks.service";
 
@@ -46,7 +47,8 @@ webhooksRouter.get("/", requireRole("ADMIN", "OPERATOR", "AUDITOR"), async (req,
     const query = z
       .object({ eventType: z.string().optional(), processingStatus: z.string().optional(), validationId: z.string().optional() })
       .parse(req.query);
-    const events = await listWebhookEvents(query);
+    const scope = await buildClientScope(req.user!);
+    const events = await listWebhookEvents(query, scope);
     res.json({
       events: events.map((e) => ({
         id: e.id,
@@ -67,7 +69,8 @@ webhooksRouter.get("/", requireRole("ADMIN", "OPERATOR", "AUDITOR"), async (req,
 
 webhooksRouter.get("/:id", requireRole("ADMIN", "OPERATOR", "AUDITOR"), async (req, res, next) => {
   try {
-    const event = await getWebhookEvent(req.params.id as string);
+    const scope = await buildClientScope(req.user!);
+    const event = await getWebhookEvent(req.params.id as string, scope);
     if (!event) {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Evento no encontrado" } });
       return;

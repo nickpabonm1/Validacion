@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ExecuteValidationInputSchema } from "@fad-console/validation-schemas";
 import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middleware";
 import { logAudit } from "../audit/audit.service";
+import { buildClientScope } from "../clients/client-scope";
 import {
   createExecution,
   getExecutionOrThrow,
@@ -14,6 +15,7 @@ import {
   toDetailDto,
   toExecutionListItemDto,
 } from "./executions.service";
+import { getEnvironmentOrThrow } from "../environments/environments.service";
 
 export const executionsRouter = Router();
 
@@ -29,7 +31,8 @@ executionsRouter.get("/", async (req, res, next) => {
         search: z.string().optional(),
       })
       .parse(req.query);
-    const executions = await listExecutions(query);
+    const scope = await buildClientScope(req.user!);
+    const executions = await listExecutions(query, scope);
     res.json({ executions: executions.map(toExecutionListItemDto) });
   } catch (error) {
     next(error);
@@ -38,7 +41,8 @@ executionsRouter.get("/", async (req, res, next) => {
 
 executionsRouter.get("/:id", async (req, res, next) => {
   try {
-    const execution = await getExecutionOrThrow(req.params.id as string);
+    const scope = await buildClientScope(req.user!);
+    const execution = await getExecutionOrThrow(req.params.id as string, scope);
     res.json({ execution: toDetailDto(execution) });
   } catch (error) {
     next(error);
@@ -47,7 +51,9 @@ executionsRouter.get("/:id", async (req, res, next) => {
 
 executionsRouter.post("/", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
     const input = ExecuteValidationInputSchema.parse(req.body);
+    await getEnvironmentOrThrow(input.environmentId, scope);
     const execution = await createExecution({
       environmentId: input.environmentId,
       templateId: input.templateId ?? null,
@@ -67,7 +73,9 @@ executionsRouter.post("/", requireRole("ADMIN", "OPERATOR", "LAUNCHER"), async (
 
 executionsRouter.post("/demo", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
     const input = ExecuteValidationInputSchema.parse(req.body);
+    await getEnvironmentOrThrow(input.environmentId, scope);
     const execution = await createExecution({
       environmentId: input.environmentId,
       templateId: input.templateId ?? null,
@@ -87,6 +95,8 @@ executionsRouter.post("/demo", requireRole("ADMIN", "OPERATOR"), async (req, res
 
 executionsRouter.post("/:id/sync", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
+    await getExecutionOrThrow(req.params.id as string, scope);
     await syncExecutionStatus(req.params.id as string);
     await logAudit("QUERY_VALIDATION", "ValidationExecution", req.params.id as string, auditContextFrom(req));
     res.json({ execution: toDetailDto(await getExecutionOrThrow(req.params.id as string)) });
@@ -97,6 +107,8 @@ executionsRouter.post("/:id/sync", requireRole("ADMIN", "OPERATOR", "AUDITOR", "
 
 executionsRouter.post("/:id/reveal/:field", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
+    await getExecutionOrThrow(req.params.id as string, scope);
     const field = z.enum(["key", "vector"]).parse(req.params.field);
     const value = await revealExecutionSecret(req.params.id as string, field);
     await logAudit("REVEAL_SECRET", "ValidationExecution", req.params.id as string, auditContextFrom(req), { field });
@@ -108,6 +120,8 @@ executionsRouter.post("/:id/reveal/:field", requireRole("ADMIN", "OPERATOR"), as
 
 executionsRouter.post("/:id/steps/:stepKey/save", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
+    await getExecutionOrThrow(req.params.id as string, scope);
     const body = z.object({ encryptedPayload: z.string().min(1) }).parse(req.body);
     const result = await saveValidationStepPassthrough(
       req.params.id as string,

@@ -5,6 +5,7 @@ import { toJsonField } from "../../lib/json-field";
 import { logger } from "../../lib/logger";
 import { normalizeWebhookEvent } from "../../normalize/webhook";
 import { syncExecutionStatus } from "../executions/executions.service";
+import { assertWithinScope, type ClientScope } from "../clients/client-scope";
 
 function computeUniqueHash(envelope: WebhookEnvelope): string {
   const parts = [envelope.id, envelope.idOriginal ?? "", envelope.event].join("::");
@@ -95,14 +96,23 @@ export interface WebhookFilters {
   validationId?: string;
 }
 
-export async function listWebhookEvents(filters: WebhookFilters) {
+export async function listWebhookEvents(filters: WebhookFilters, scope?: ClientScope) {
   const where: Record<string, unknown> = {};
   if (filters.eventType) where.eventType = filters.eventType;
   if (filters.processingStatus) where.processingStatus = filters.processingStatus;
   if (filters.validationId) where.validationId = filters.validationId;
+  // Un webhook aún no asociado a ninguna ejecución no tiene forma de atribuirse a un cliente, así
+  // que se excluye del listado de un cliente (nunca se muestra un dato que no se pueda confirmar
+  // que le pertenece) — ver la misma decisión en settings.service.ts (getDashboardStats).
+  if (scope?.allowedIds) where.validationExecution = { environment: { clientId: { in: scope.allowedIds } } };
   return prisma.webhookEvent.findMany({ where, orderBy: { receivedAt: "desc" }, take: 200 });
 }
 
-export async function getWebhookEvent(id: string) {
-  return prisma.webhookEvent.findUnique({ where: { id } });
+export async function getWebhookEvent(id: string, scope?: ClientScope) {
+  const event = await prisma.webhookEvent.findUnique({
+    where: { id },
+    include: { validationExecution: { include: { environment: true } } },
+  });
+  if (event && scope) assertWithinScope(event.validationExecution?.environment.clientId ?? null, scope);
+  return event;
 }

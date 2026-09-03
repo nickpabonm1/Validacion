@@ -16,6 +16,7 @@ import { WebhooksPage } from "./routes/WebhooksPage";
 import { EnvironmentsPage } from "./routes/EnvironmentsPage";
 import { CatalogsPage } from "./routes/CatalogsPage";
 import { UsersPage } from "./routes/UsersPage";
+import { ClientsPage } from "./routes/ClientsPage";
 import { AuditPage } from "./routes/AuditPage";
 import { SettingsPage } from "./routes/SettingsPage";
 import { NotFoundPage } from "./routes/NotFoundPage";
@@ -86,6 +87,14 @@ export function App() {
           element={
             <RequireRole roles={["ADMIN"]}>
               <CatalogsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="clients"
+          element={
+            <RequireRole roles={["ADMIN"]}>
+              <ClientsPage />
             </RequireRole>
           }
         />

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { ValidationTemplateInputSchema } from "@fad-console/validation-schemas";
 import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middleware";
 import { logAudit } from "../audit/audit.service";
+import { buildClientScope } from "../clients/client-scope";
 import {
   cloneTemplate,
   createTemplate,
@@ -16,9 +17,10 @@ export const templatesRouter = Router();
 
 templatesRouter.use(requireAuth);
 
-templatesRouter.get("/", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"), async (_req, res, next) => {
+templatesRouter.get("/", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"), async (req, res, next) => {
   try {
-    const templates = await listTemplates();
+    const scope = await buildClientScope(req.user!);
+    const templates = await listTemplates(scope);
     res.json({ templates: templates.map(toTemplateDto) });
   } catch (error) {
     next(error);
@@ -27,7 +29,8 @@ templatesRouter.get("/", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER")
 
 templatesRouter.get("/:id", requireRole("ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"), async (req, res, next) => {
   try {
-    const template = await getTemplateOrThrow(req.params.id as string);
+    const scope = await buildClientScope(req.user!);
+    const template = await getTemplateOrThrow(req.params.id as string, scope);
     res.json({ template: toTemplateDto(template) });
   } catch (error) {
     next(error);
@@ -47,6 +50,8 @@ templatesRouter.post("/", requireRole("ADMIN", "OPERATOR"), async (req, res, nex
 
 templatesRouter.put("/:id", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
+    await getTemplateOrThrow(req.params.id as string, scope);
     const input = ValidationTemplateInputSchema.parse(req.body);
     const template = await updateTemplate(req.params.id as string, input, req.user!.sub);
     await logAudit("UPDATE", "ValidationTemplate", template.id, auditContextFrom(req), { name: template.name });
@@ -58,6 +63,8 @@ templatesRouter.put("/:id", requireRole("ADMIN", "OPERATOR"), async (req, res, n
 
 templatesRouter.post("/:id/clone", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
+    await getTemplateOrThrow(req.params.id as string, scope);
     const template = await cloneTemplate(req.params.id as string, req.user!.sub);
     await logAudit("CREATE", "ValidationTemplate", template.id, auditContextFrom(req), { clonedFrom: req.params.id });
     res.status(201).json({ template: toTemplateDto(template) });
@@ -68,6 +75,8 @@ templatesRouter.post("/:id/clone", requireRole("ADMIN", "OPERATOR"), async (req,
 
 templatesRouter.delete("/:id", requireRole("ADMIN"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
+    await getTemplateOrThrow(req.params.id as string, scope);
     await deleteTemplate(req.params.id as string);
     await logAudit("DELETE", "ValidationTemplate", req.params.id as string, auditContextFrom(req));
     res.status(204).send();

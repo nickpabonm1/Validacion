@@ -3,6 +3,7 @@ import { fromJsonField, toJsonField } from "../../lib/json-field";
 import { AppError } from "../../lib/errors";
 import type { ValidationRequestConfig } from "@fad-console/validation-schemas";
 import type { ValidationTemplateInput } from "@fad-console/validation-schemas";
+import { assertWithinScope, type ClientScope } from "../clients/client-scope";
 
 type TemplateRecord = Awaited<ReturnType<typeof prisma.validationTemplate.findFirstOrThrow>>;
 
@@ -30,13 +31,15 @@ export function toTemplateDto(template: TemplateRecord) {
   };
 }
 
-export async function listTemplates() {
-  return prisma.validationTemplate.findMany({ orderBy: { createdAt: "desc" } });
+export async function listTemplates(scope?: ClientScope) {
+  const where = scope?.allowedIds ? { environment: { clientId: { in: scope.allowedIds } } } : {};
+  return prisma.validationTemplate.findMany({ where, orderBy: { createdAt: "desc" } });
 }
 
-export async function getTemplateOrThrow(id: string) {
-  const template = await prisma.validationTemplate.findUnique({ where: { id } });
+export async function getTemplateOrThrow(id: string, scope?: ClientScope) {
+  const template = await prisma.validationTemplate.findUnique({ where: { id }, include: { environment: true } });
   if (!template) throw AppError.notFound("Plantilla no encontrada");
+  if (scope) assertWithinScope(template.environment?.clientId ?? null, scope);
   return template;
 }
 

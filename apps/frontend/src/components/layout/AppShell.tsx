@@ -1,14 +1,22 @@
+import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { LogOut, Moon, Sun, ShieldHalf } from "lucide-react";
 import { cn } from "@fad-console/ui";
 import { useAuth } from "../../lib/auth-context";
 import { useTheme } from "../../lib/theme-context";
+import { useMyClientBranding } from "../../features/clients/useClients";
+import { applyClientBranding } from "../../lib/client-branding";
 import { NAV_ITEMS } from "./nav-items";
 import { Button } from "../ui/button";
 
 export function AppShell() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { data: branding } = useMyClientBranding();
+
+  useEffect(() => {
+    if (branding) applyClientBranding(branding);
+  }, [branding]);
 
   if (!user) return null;
 
@@ -25,8 +33,14 @@ export function AppShell() {
 
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-card md:flex">
         <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-          <ShieldHalf className="h-6 w-6 text-primary" />
-          <span className="text-sm font-semibold tracking-tight">FAD Biometrics Console</span>
+          {branding?.logoDataUrl ? (
+            <img src={branding.logoDataUrl} alt={branding.clientName ?? "Logo"} className="h-8 max-w-[9rem] object-contain" />
+          ) : (
+            <>
+              <ShieldHalf className="h-6 w-6 text-primary" />
+              <span className="text-sm font-semibold tracking-tight">{branding?.clientName ?? "FAD Biometrics Console"}</span>
+            </>
+          )}
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Navegación principal">
           {items.map((item) => (

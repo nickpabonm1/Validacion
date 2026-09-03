@@ -9,6 +9,9 @@ export const CreateUserInputSchema = z.object({
   password: z.string().min(PASSWORD_MIN, `La contraseña debe tener al menos ${PASSWORD_MIN} caracteres`),
   role: z.enum(USER_ROLES),
   active: z.boolean().default(true),
+  /** `null`/ausente = usuario de plataforma (solo un ADMIN de plataforma puede crear uno así;
+   * ver clients/client-scope.ts). Con un valor, el usuario queda confinado a ese cliente. */
+  clientId: z.string().min(1).optional().nullable(),
 });
 export type CreateUserInput = z.infer<typeof CreateUserInputSchema>;
 

@@ -5,6 +5,7 @@ import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middlew
 import { logAudit } from "../audit/audit.service";
 import { fadApiAdapter } from "../fad-adapter/fad-api-adapter";
 import { clearCachedToken } from "../fad-adapter/token-cache";
+import { buildClientScope } from "../clients/client-scope";
 import {
   clearCredentialField,
   createEnvironment,
@@ -20,9 +21,10 @@ export const environmentsRouter = Router();
 
 environmentsRouter.use(requireAuth);
 
-environmentsRouter.get("/", async (_req, res, next) => {
+environmentsRouter.get("/", async (req, res, next) => {
   try {
-    const environments = await listEnvironments();
+    const scope = await buildClientScope(req.user!);
+    const environments = await listEnvironments(scope);
     res.json({ environments: environments.map(toEnvironmentDto) });
   } catch (error) {
     next(error);
@@ -31,7 +33,8 @@ environmentsRouter.get("/", async (_req, res, next) => {
 
 environmentsRouter.get("/:id", async (req, res, next) => {
   try {
-    const environment = await getEnvironmentOrThrow(req.params.id as string);
+    const scope = await buildClientScope(req.user!);
+    const environment = await getEnvironmentOrThrow(req.params.id as string, scope);
     res.json({ environment: toEnvironmentDto(environment) });
   } catch (error) {
     next(error);
@@ -40,8 +43,9 @@ environmentsRouter.get("/:id", async (req, res, next) => {
 
 environmentsRouter.post("/", requireRole("ADMIN"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
     const input = ApiEnvironmentInputSchema.parse(req.body);
-    const environment = await createEnvironment(input);
+    const environment = await createEnvironment(input, scope);
     await logAudit("CREATE", "ApiEnvironment", environment.id, auditContextFrom(req), { name: environment.name });
     res.status(201).json({ environment: toEnvironmentDto(environment) });
   } catch (error) {
@@ -51,8 +55,9 @@ environmentsRouter.post("/", requireRole("ADMIN"), async (req, res, next) => {
 
 environmentsRouter.put("/:id", requireRole("ADMIN"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
     const input = ApiEnvironmentInputSchema.parse(req.body);
-    const environment = await updateEnvironment(req.params.id as string, input);
+    const environment = await updateEnvironment(req.params.id as string, input, scope);
     clearCachedToken(environment.id);
     await logAudit("UPDATE", "ApiEnvironment", environment.id, auditContextFrom(req), { name: environment.name });
     res.json({ environment: toEnvironmentDto(environment) });
@@ -63,7 +68,8 @@ environmentsRouter.put("/:id", requireRole("ADMIN"), async (req, res, next) => {
 
 environmentsRouter.delete("/:id", requireRole("ADMIN"), async (req, res, next) => {
   try {
-    await deleteEnvironment(req.params.id as string);
+    const scope = await buildClientScope(req.user!);
+    await deleteEnvironment(req.params.id as string, scope);
     clearCachedToken(req.params.id as string);
     await logAudit("DELETE", "ApiEnvironment", req.params.id as string, auditContextFrom(req));
     res.status(204).send();
@@ -85,8 +91,9 @@ const CredentialFieldParamSchema = z.object({
 
 environmentsRouter.delete("/:id/credentials/:field", requireRole("ADMIN"), async (req, res, next) => {
   try {
+    const scope = await buildClientScope(req.user!);
     const { field } = CredentialFieldParamSchema.parse({ field: req.params.field });
-    const environment = await clearCredentialField(req.params.id as string, field);
+    const environment = await clearCredentialField(req.params.id as string, field, scope);
     clearCachedToken(environment.id);
     await logAudit("DELETE", "ApiEnvironmentCredential", environment.id, auditContextFrom(req), { field });
     res.json({ environment: toEnvironmentDto(environment) });
@@ -97,7 +104,8 @@ environmentsRouter.delete("/:id/credentials/:field", requireRole("ADMIN"), async
 
 environmentsRouter.post("/:id/test-connection", requireRole("ADMIN"), async (req, res, next) => {
   try {
-    const environment = await getEnvironmentOrThrow(req.params.id as string);
+    const scope = await buildClientScope(req.user!);
+    const environment = await getEnvironmentOrThrow(req.params.id as string, scope);
     const result = await fadApiAdapter.testConnection(environment);
     await setConnectionStatus(environment.id, result.success ? "OK" : "FAILED");
     await logAudit("TEST_CONNECTION", "ApiEnvironment", environment.id, auditContextFrom(req), {

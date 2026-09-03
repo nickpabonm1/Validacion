@@ -7,6 +7,9 @@ export interface SessionTokenPayload {
   email: string;
   role: UserRole;
   name: string;
+  /** `null` = usuario de plataforma (acceso global). Con un cliente asignado, la sesión queda
+   * confinada a ese cliente y a sus hijos — ver clients/client-scope.ts. */
+  clientId: string | null;
 }
 
 const EXPIRES_IN = "12h";

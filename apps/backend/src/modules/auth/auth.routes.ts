@@ -48,7 +48,7 @@ authRouter.post("/bootstrap/admin", async (req, res, next) => {
     }
     const input = BootstrapAdminInputSchema.parse(req.body);
     const user = await createUser({ ...input, role: "ADMIN", active: true });
-    const token = signSessionToken({ sub: user.id, email: user.email, role: "ADMIN", name: user.name });
+    const token = signSessionToken({ sub: user.id, email: user.email, role: "ADMIN", name: user.name, clientId: null });
     setSessionCookie(res, token);
     await logAudit("CREATE", "User", user.id, { userId: user.id }, { note: "Bootstrap admin" });
     res.status(201).json({ user: toUserDto(user) });
@@ -78,6 +78,7 @@ authRouter.post("/login", loginLimiter, async (req, res, next) => {
       email: user.email,
       role: user.role as "ADMIN" | "OPERATOR" | "AUDITOR",
       name: user.name,
+      clientId: user.clientId,
     });
     setSessionCookie(res, token);
     await logAudit("LOGIN", "User", user.id, { ...auditCtx, userId: user.id });
@@ -106,6 +107,7 @@ authRouter.get("/me", attachUser, requireAuth, (req, res) => {
       email: req.user!.email,
       role: req.user!.role,
       name: req.user!.name,
+      clientId: req.user!.clientId,
     },
   });
 });

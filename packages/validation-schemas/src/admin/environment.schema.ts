@@ -61,6 +61,11 @@ export const ApiEnvironmentInputSchema = z.object({
   webhookActive: z.boolean().default(false),
 
   integrationModel: z.enum(INTEGRATION_MODELS).default("API_BY_STEPS"),
+
+  /** `null`/ausente = ambiente de plataforma (histórico, solo un ADMIN de plataforma puede
+   * crear uno así; ver clients/client-scope.ts). Con un valor, el ambiente queda dentro del
+   * subárbol del cliente creador. */
+  clientId: z.string().min(1).optional().nullable(),
 });
 export type ApiEnvironmentInput = z.infer<typeof ApiEnvironmentInputSchema>;
 

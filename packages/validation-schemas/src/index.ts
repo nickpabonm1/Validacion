@@ -19,5 +19,6 @@ export * from "./admin/user.schema";
 export * from "./admin/response-view.schema";
 export * from "./admin/template.schema";
 export * from "./admin/document-check-scoring.schema";
+export * from "./admin/client.schema";
 
 export * as fixtures from "./fixtures";

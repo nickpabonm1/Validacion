@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { credentialEncryptionService } from "../credentials/credential-encryption.service";
+import type { ClientScope } from "../clients/client-scope";
 
 export async function listSettings() {
   const settings = await prisma.systemSetting.findMany({ orderBy: { key: "asc" } });
@@ -55,20 +56,32 @@ export interface DashboardStats {
   environments: Array<{ id: string; name: string; connectionStatus: string }>;
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(scope?: ClientScope): Promise<DashboardStats> {
+  // Sin restricción (usuario de plataforma): comportamiento histórico, sin filtro. Con un
+  // cliente asignado, cada consulta se limita a su subárbol — vía el ambiente al que pertenece
+  // cada ejecución/evento de webhook (ninguno de los dos tiene `clientId` directo). Un webhook
+  // aún no asociado a ninguna ejecución (`validationExecutionId: null`) no tiene forma de
+  // atribuirse a un cliente, así que se excluye del panel de un cliente (nunca se muestra un
+  // dato que no se pueda confirmar que le pertenece).
+  const executionWhere = scope?.allowedIds ? { environment: { clientId: { in: scope.allowedIds } } } : {};
+  const webhookWhere = scope?.allowedIds
+    ? { validationExecution: { environment: { clientId: { in: scope.allowedIds } } } }
+    : {};
+  const environmentWhere = scope?.allowedIds ? { clientId: { in: scope.allowedIds } } : {};
+
   const [total, inProgress, completed, failed, webhooksReceived, webhooksError, recentExecutions, recentWebhookEvents, environments, completedExecutions] =
     await Promise.all([
-      prisma.validationExecution.count(),
-      prisma.validationExecution.count({ where: { normalizedStatus: "IN_PROGRESS" } }),
-      prisma.validationExecution.count({ where: { normalizedStatus: "COMPLETED" } }),
-      prisma.validationExecution.count({ where: { normalizedStatus: "FAILED" } }),
-      prisma.webhookEvent.count(),
-      prisma.webhookEvent.count({ where: { processingStatus: "ERROR" } }),
-      prisma.validationExecution.findMany({ orderBy: { createdAt: "desc" }, take: 5 }),
-      prisma.webhookEvent.findMany({ orderBy: { receivedAt: "desc" }, take: 5 }),
-      prisma.apiEnvironment.findMany(),
+      prisma.validationExecution.count({ where: executionWhere }),
+      prisma.validationExecution.count({ where: { ...executionWhere, normalizedStatus: "IN_PROGRESS" } }),
+      prisma.validationExecution.count({ where: { ...executionWhere, normalizedStatus: "COMPLETED" } }),
+      prisma.validationExecution.count({ where: { ...executionWhere, normalizedStatus: "FAILED" } }),
+      prisma.webhookEvent.count({ where: webhookWhere }),
+      prisma.webhookEvent.count({ where: { ...webhookWhere, processingStatus: "ERROR" } }),
+      prisma.validationExecution.findMany({ where: executionWhere, orderBy: { createdAt: "desc" }, take: 5 }),
+      prisma.webhookEvent.findMany({ where: webhookWhere, orderBy: { receivedAt: "desc" }, take: 5 }),
+      prisma.apiEnvironment.findMany({ where: environmentWhere }),
       prisma.validationExecution.findMany({
-        where: { normalizedStatus: "COMPLETED", startedAt: { not: null }, completedAt: { not: null } },
+        where: { ...executionWhere, normalizedStatus: "COMPLETED", startedAt: { not: null }, completedAt: { not: null } },
         select: { startedAt: true, completedAt: true },
       }),
     ]);

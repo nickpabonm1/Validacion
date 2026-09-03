@@ -6,6 +6,9 @@ export interface AuthenticatedUserDto {
   email: string;
   role: UserRole;
   active: boolean;
+  /** `null` = usuario de plataforma (acceso global). Con un cliente asignado, la sesión queda
+   * confinada a ese cliente y a sus hijos — ver `ClientDto`. */
+  clientId: string | null;
 }
 
 /**
@@ -42,6 +45,8 @@ export interface ApiEnvironmentDto {
   connectionStatus: "NOT_CONFIGURED" | "UNKNOWN" | "OK" | "FAILED";
   lastTestedAt: string | null;
   integrationModel: IntegrationModel;
+  /** `null` = ambiente de plataforma (histórico, no pertenece a ningún cliente). */
+  clientId: string | null;
   createdAt: string;
   updatedAt: string;
 }

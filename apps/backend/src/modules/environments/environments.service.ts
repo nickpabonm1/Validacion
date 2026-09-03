@@ -3,6 +3,7 @@ import type { ApiEnvironmentInput } from "@fad-console/validation-schemas";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../lib/errors";
 import { credentialEncryptionService } from "../credentials/credential-encryption.service";
+import { assertWithinScope, clientWhereClause, type ClientScope } from "../clients/client-scope";
 
 type EnvironmentRecord = Awaited<ReturnType<typeof prisma.apiEnvironment.findFirstOrThrow>>;
 
@@ -37,6 +38,7 @@ export function toEnvironmentDto(env: EnvironmentRecord): ApiEnvironmentDto {
     connectionStatus: env.connectionStatus as ApiEnvironmentDto["connectionStatus"],
     lastTestedAt: env.lastTestedAt ? env.lastTestedAt.toISOString() : null,
     integrationModel: env.integrationModel as IntegrationModel,
+    clientId: env.clientId,
     createdAt: env.createdAt.toISOString(),
     updatedAt: env.updatedAt.toISOString(),
   };
@@ -51,13 +53,15 @@ export function hasMinimumCredentials(env: { apiUsernameEnc: string | null; apiP
   );
 }
 
-export async function listEnvironments() {
-  return prisma.apiEnvironment.findMany({ orderBy: { createdAt: "asc" } });
+export async function listEnvironments(scope?: ClientScope) {
+  const where = scope ? clientWhereClause(scope) : undefined;
+  return prisma.apiEnvironment.findMany({ where: where ? { clientId: where } : {}, orderBy: { createdAt: "asc" } });
 }
 
-export async function getEnvironmentOrThrow(id: string) {
+export async function getEnvironmentOrThrow(id: string, scope?: ClientScope) {
   const environment = await prisma.apiEnvironment.findUnique({ where: { id } });
   if (!environment) throw AppError.notFound("Ambiente no encontrado");
+  if (scope) assertWithinScope(environment.clientId, scope);
   return environment;
 }
 
@@ -72,11 +76,21 @@ function buildCredentialFields(input: ApiEnvironmentInput) {
   };
 }
 
-export async function createEnvironment(input: ApiEnvironmentInput) {
+export async function createEnvironment(input: ApiEnvironmentInput, scope?: ClientScope) {
+  let clientId = input.clientId ?? null;
+  if (scope) {
+    // Un ADMIN de cliente solo puede crear ambientes dentro de su propio subárbol; sin cliente
+    // explícito, se asume su propio cliente.
+    if (scope.allowedIds !== null) {
+      if (!clientId) clientId = scope.clientId;
+      assertWithinScope(clientId, scope);
+    }
+  }
   const credentials = buildCredentialFields(input);
   return prisma.apiEnvironment.create({
     data: {
       name: input.name,
+      clientId,
       description: input.description ?? null,
       environmentType: input.environmentType,
       baseUrl: input.baseUrl,
@@ -102,8 +116,8 @@ export async function createEnvironment(input: ApiEnvironmentInput) {
   });
 }
 
-export async function updateEnvironment(id: string, input: ApiEnvironmentInput) {
-  await getEnvironmentOrThrow(id);
+export async function updateEnvironment(id: string, input: ApiEnvironmentInput, scope?: ClientScope) {
+  await getEnvironmentOrThrow(id, scope);
   const credentials = buildCredentialFields(input);
   return prisma.apiEnvironment.update({
     where: { id },
@@ -133,8 +147,8 @@ export async function updateEnvironment(id: string, input: ApiEnvironmentInput) 
   });
 }
 
-export async function deleteEnvironment(id: string) {
-  await getEnvironmentOrThrow(id);
+export async function deleteEnvironment(id: string, scope?: ClientScope) {
+  await getEnvironmentOrThrow(id, scope);
   await prisma.apiEnvironment.delete({ where: { id } });
 }
 
@@ -149,8 +163,8 @@ const CREDENTIAL_FIELD_MAP = {
 
 export type CredentialFieldKey = keyof typeof CREDENTIAL_FIELD_MAP;
 
-export async function clearCredentialField(id: string, field: CredentialFieldKey) {
-  await getEnvironmentOrThrow(id);
+export async function clearCredentialField(id: string, field: CredentialFieldKey, scope?: ClientScope) {
+  await getEnvironmentOrThrow(id, scope);
   const column = CREDENTIAL_FIELD_MAP[field];
   return prisma.apiEnvironment.update({ where: { id }, data: { [column]: null } });
 }
