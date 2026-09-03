@@ -1,3 +1,6 @@
+// GENERADO AUTOMÁTICAMENTE por scripts/build-postgresql-schema.mjs a partir de schema.prisma — no editar a mano.
+// Variante para despliegues en PostgreSQL (ver la pestaña "Base de datos" del menú, o docs/architecture.md §6).
+
 // FAD Biometrics Configuration & Results Console — modelo de datos
 // SQLite por defecto (desarrollo/demo). El conector SQLite de Prisma no soporta `enum` ni el
 // tipo nativo `Json`: los enums se modelan como `String` (validados en la capa de aplicación
@@ -13,7 +16,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

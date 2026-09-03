@@ -78,10 +78,26 @@ El frontend nunca recibe un secreto guardado; solo banderas `*Configured: boolea
 ## 6. Persistencia y migración a Postgres
 
 Prisma con `datasource db { provider = "sqlite" }` para desarrollo. El esquema evita
-características específicas de SQLite (usa `String` para JSON con `Json` de Prisma cuando el
-proveedor lo permite; en SQLite se serializa como texto vía el tipo `Json` soportado por
-Prisma). Cambiar a Postgres implica: `provider = "postgresql"`, `DATABASE_URL` apuntando a
-Postgres, y `prisma migrate deploy` — no se toca lógica de dominio.
+características específicas de SQLite (enums y JSON se modelan como `String`, validados en la
+capa de aplicación — ver el encabezado de `prisma/schema.prisma`), por lo que es portable a
+Postgres sin tocar lógica de dominio.
+
+`prisma/postgresql/schema.prisma` es la variante real para desplegar en PostgreSQL — generada
+mecánicamente desde `prisma/schema.prisma` por `scripts/build-postgresql-schema.mjs` (cambia
+solo el bloque `datasource`, para no mantener dos archivos de ~500 líneas a mano), con su propio
+historial de migraciones en `prisma/postgresql/migrations/` (el SQL de migración no es
+intercambiable entre motores). Para desplegar en Postgres:
+
+1. `DATABASE_URL` apuntando a la instancia de Postgres real.
+2. `npm run db:postgresql:build` (regenera el esquema si `schema.prisma` cambió).
+3. `npm run db:postgresql:migrate:deploy`.
+4. Reiniciar el servidor.
+
+Este proceso también está documentado y accionable desde la pestaña "Base de datos" del menú
+(prueba de conexión real contra Postgres antes de aplicar el cambio) — ver
+`apps/backend/src/modules/database-connection/`. MongoDB y una base de grafos (Neo4j) se pueden
+seleccionar y guardar como preferencia ahí, pero no tienen una capa de acceso a datos
+implementada todavía (requerirían un modelo de datos y un cliente distintos a Prisma+SQL).
 
 ## 7. Extensibilidad
 

@@ -7,6 +7,22 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const ENVIRONMENT_TYPES = ["UATHA", "QA", "PRODUCTION"] as const;
 export type EnvironmentType = (typeof ENVIRONMENT_TYPES)[number];
 
+/**
+ * Motor de base de datos que esta instancia usa o planea usar (pestaña "Base de datos" del menú).
+ * SQLITE y POSTGRESQL son los únicos con soporte funcional real (ambos vía Prisma+SQL — ver
+ * `prisma/schema.prisma` y `prisma/postgresql/schema.prisma`, generado con
+ * `scripts/build-postgresql-schema.mjs`). MONGODB y GRAPH_NEO4J se pueden seleccionar y guardar
+ * como preferencia/datos de conexión, pero no tienen una capa de acceso a datos implementada
+ * todavía — requerirían un modelo de datos y un cliente distintos a Prisma+SQL, no un simple
+ * cambio de `DATABASE_URL`. Nunca se presenta como "funcionando" cuando no lo está.
+ */
+export const DATABASE_ENGINES = ["SQLITE", "POSTGRESQL", "MONGODB", "GRAPH_NEO4J"] as const;
+export type DatabaseEngine = (typeof DATABASE_ENGINES)[number];
+
+/** Motores con soporte funcional real hoy (Prisma + SQL) — los únicos para los que "Probar
+ * conexión" hace un intento de conexión real. */
+export const FUNCTIONAL_DATABASE_ENGINES: readonly DatabaseEngine[] = ["SQLITE", "POSTGRESQL"];
+
 export const HTTP_METHODS = ["GET", "POST"] as const;
 export type ConfigurableHttpMethod = (typeof HTTP_METHODS)[number];
 

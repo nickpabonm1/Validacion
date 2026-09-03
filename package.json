@@ -30,6 +30,11 @@
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "predb:seed": "npm run build:packages",
     "db:seed": "tsx prisma/seed.ts",
+    "db:postgresql:build": "node scripts/build-postgresql-schema.mjs",
+    "predb:postgresql:migrate": "npm run db:postgresql:build",
+    "db:postgresql:migrate": "prisma migrate dev --schema prisma/postgresql/schema.prisma",
+    "predb:postgresql:migrate:deploy": "npm run db:postgresql:build",
+    "db:postgresql:migrate:deploy": "prisma migrate deploy --schema prisma/postgresql/schema.prisma",
     "generate:encryption-key": "node scripts/generate-encryption-key.mjs",
     "postinstall": "npm run db:generate --if-present && npm run build:packages --if-present"
   },

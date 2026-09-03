@@ -15,6 +15,7 @@ import {
   Settings,
   Gauge,
   Mail,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,5 +41,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/users", label: "Usuarios", icon: Users, roles: ["ADMIN"] },
   { to: "/audit", label: "Auditoría", icon: ShieldCheck, roles: ["ADMIN", "AUDITOR"] },
   { to: "/messaging", label: "Mensajería", icon: Mail, roles: ["ADMIN"] },
+  { to: "/database", label: "Base de datos", icon: Database, roles: ["ADMIN"] },
   { to: "/settings", label: "Configuración", icon: Settings, roles: ["ADMIN"] },
 ];

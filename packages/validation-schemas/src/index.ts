@@ -21,5 +21,6 @@ export * from "./admin/template.schema";
 export * from "./admin/document-check-scoring.schema";
 export * from "./admin/client.schema";
 export * from "./admin/execution-email.schema";
+export * from "./admin/database-connection.schema";
 
 export * as fixtures from "./fixtures";

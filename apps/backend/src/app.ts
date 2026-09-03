@@ -24,6 +24,7 @@ import { websdkShareRouter } from "./modules/websdk/websdk-share.routes";
 import { websdkSharePublicRouter } from "./modules/websdk/websdk-share-public.routes";
 import { messagingConfigRouter } from "./modules/messaging/messaging-config.routes";
 import { documentCheckScoringRouter } from "./modules/document-check-scoring/document-check-scoring.routes";
+import { databaseConnectionRouter } from "./modules/database-connection/database-connection.routes";
 import { clientsRouter } from "./modules/clients/clients.routes";
 import { errorHandler, notFoundHandler } from "./lib/errors";
 
@@ -88,6 +89,7 @@ export function createApp(): express.Express {
   app.use("/api/public/websdk-share", websdkSharePublicRouter);
   app.use("/api/messaging-config", messagingConfigRouter);
   app.use("/api/document-check-scoring", documentCheckScoringRouter);
+  app.use("/api/database-connection", databaseConnectionRouter);
   app.use("/api/clients", clientsRouter);
 
   // El frontend compilado (apps/frontend/dist) se sirve desde el propio backend en producción

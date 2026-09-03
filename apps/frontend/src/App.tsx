@@ -14,6 +14,7 @@ import { ExecutionDetailPage } from "./routes/ExecutionDetailPage";
 import { ResponseDesignerPage } from "./routes/ResponseDesignerPage";
 import { ResponseScoringPage } from "./routes/ResponseScoringPage";
 import { MessagingPage } from "./routes/MessagingPage";
+import { DatabaseConfigPage } from "./routes/DatabaseConfigPage";
 import { WebhooksPage } from "./routes/WebhooksPage";
 import { EnvironmentsPage } from "./routes/EnvironmentsPage";
 import { CatalogsPage } from "./routes/CatalogsPage";
@@ -81,6 +82,14 @@ export function App() {
           element={
             <RequireRole roles={["ADMIN"]}>
               <MessagingPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="database"
+          element={
+            <RequireRole roles={["ADMIN"]}>
+              <DatabaseConfigPage />
             </RequireRole>
           }
         />
