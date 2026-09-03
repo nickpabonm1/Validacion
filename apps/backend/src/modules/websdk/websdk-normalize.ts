@@ -303,6 +303,10 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
     externalValidations,
     alerts,
     documentChecks: [],
+    // El flujo Web SDK no produce `documentChecks` (captura Acuant/Regula/CaptureId + Facetec, no
+    // el paso `captureId` de FAD por-pasos) — el rechazo automático por concordancia documental
+    // nunca aplica aquí (ver `documentCheckRejection` en NormalizedValidationDetail).
+    documentCheckRejection: null,
     governmentValidation: null,
     naatCheckResult: null,
     mediaAssets,

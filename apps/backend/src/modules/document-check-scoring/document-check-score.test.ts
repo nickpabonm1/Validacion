@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NormalizedDocumentCheck } from "@fad-console/shared-types";
-import { computeDocumentCheckScore, resultTone } from "./document-check-score";
+import { computeDocumentCheckScore, resultTone } from "@fad-console/shared-types";
 
 function check(overrides: Partial<NormalizedDocumentCheck>): NormalizedDocumentCheck {
   return {

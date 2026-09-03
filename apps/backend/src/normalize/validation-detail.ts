@@ -374,6 +374,11 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
     externalValidations,
     alerts,
     documentChecks,
+    // El rechazo automático por concordancia documental (`documentCheckRejection`) depende de la
+    // configuración de puntuación (una fila en BD) — esta función es pura y no accede a BD, así
+    // que solo pone el valor neutro por defecto; `executions.service.ts` lo sobreescribe después
+    // de calcular el puntaje con la configuración real.
+    documentCheckRejection: null,
     governmentValidation,
     naatCheckResult,
     mediaAssets: extractMediaAssets(steps),

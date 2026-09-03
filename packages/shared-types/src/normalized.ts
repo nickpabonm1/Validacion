@@ -107,6 +107,15 @@ export interface NormalizedValidationDetail {
    * MRZ, fechas) — ver `NormalizedDocumentCheck`. Vacío cuando el paso `captureId` todavía no
    * tiene `data.alerts` (paso pendiente) o el proveedor no devolvió ese detalle. */
   documentChecks: NormalizedDocumentCheck[];
+  /** Cuando la configuración de puntuación (`DocumentCheckScoringConfigDto.passThreshold`) está
+   * activa y el porcentaje calculado de `documentChecks` (ver `computeDocumentCheckScore`) queda
+   * por debajo de ese umbral, el sistema RECHAZA automáticamente el proceso por no concordancia
+   * documental — `result` pasa a "REJECTED" (ver `executions.service.ts recomputeAndPersist`) y
+   * este campo queda poblado con el porcentaje/umbral exactos para que el reporte explique el
+   * motivo. `rawResult` conserva intacto el resultado que FAD haya devuelto, sin tocar — este
+   * campo documenta que la decisión de `result` es de esta consola, no de FAD. `null` cuando no
+   * aplicó (sin umbral configurado, o el porcentaje calculado sí lo alcanzó). */
+  documentCheckRejection: { percentage: number; threshold: number } | null;
   /** Folios y respuestas de validación contra gobierno (Registraduría/RENAPO/CECOBAN/ENROLL —
    * `getValidationData.data.{folio,folioProceso,folioCecoban,respuestaRenapo,respuestaCecoban,
    * respuestaEnroll,dataValidationRenapo,dataValidationSat,dataValidationFimpeRPADto,

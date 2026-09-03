@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, MinusCircle } from "lucide-react";
-import type { NormalizedDocumentCheck } from "@fad-console/shared-types";
+import { resultTone, type DocumentCheckTone, type NormalizedDocumentCheck } from "@fad-console/shared-types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   translateCheckDescription,
@@ -7,7 +7,6 @@ import {
   translateResultDescription,
   translateResultLabel,
 } from "../../lib/document-check-i18n";
-import { resultTone, type DocumentCheckTone } from "../../lib/document-check-score";
 import { DocumentCheckScoreCard } from "./DocumentCheckScoreCard";
 
 /** Orden y etiquetas de las 5 categorías de `steps.captureId.data.alerts`, igual que las

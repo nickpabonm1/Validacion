@@ -65,6 +65,17 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
 
   return (
     <div className="space-y-4">
+      {detail.documentCheckRejection ? (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            <span className="font-medium">Rechazado automáticamente por no concordancia documental.</span> La Validación
+            de ID obtuvo {detail.documentCheckRejection.percentage}% de concordancia, por debajo del umbral mínimo
+            configurado ({detail.documentCheckRejection.threshold}%). Este rechazo es una decisión de esta consola, no
+            necesariamente el resultado que FAD reportó — ajustable en «Configuración de la respuesta».
+          </p>
+        </div>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>Cliente y proceso</CardTitle>

@@ -13,6 +13,8 @@ import {
   Building2,
   ShieldCheck,
   Settings,
+  Gauge,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,11 +32,13 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/executions/new", label: "Nueva ejecución", icon: PlayCircle, roles: ["ADMIN", "OPERATOR", "LAUNCHER"] },
   { to: "/executions", label: "Validaciones", icon: ListChecks, roles: ["ADMIN", "OPERATOR", "AUDITOR", "LAUNCHER"] },
   { to: "/response-designer", label: "Diseñador de respuestas", icon: SlidersHorizontal, roles: ["ADMIN"] },
+  { to: "/response-scoring", label: "Configuración de la respuesta", icon: Gauge, roles: ["ADMIN"] },
   { to: "/webhooks", label: "Webhooks", icon: Webhook, roles: ["ADMIN", "OPERATOR", "AUDITOR"] },
   { to: "/environments", label: "Ambientes", icon: Server, roles: ["ADMIN"] },
   { to: "/catalogs", label: "Catálogos", icon: BookOpen, roles: ["ADMIN"] },
   { to: "/clients", label: "Clientes", icon: Building2, roles: ["ADMIN"] },
   { to: "/users", label: "Usuarios", icon: Users, roles: ["ADMIN"] },
   { to: "/audit", label: "Auditoría", icon: ShieldCheck, roles: ["ADMIN", "AUDITOR"] },
+  { to: "/messaging", label: "Mensajería", icon: Mail, roles: ["ADMIN"] },
   { to: "/settings", label: "Configuración", icon: Settings, roles: ["ADMIN"] },
 ];

@@ -12,6 +12,8 @@ import { WebSdkPublicCapturePage } from "./routes/WebSdkPublicCapturePage";
 import { ExecutionsPage } from "./routes/ExecutionsPage";
 import { ExecutionDetailPage } from "./routes/ExecutionDetailPage";
 import { ResponseDesignerPage } from "./routes/ResponseDesignerPage";
+import { ResponseScoringPage } from "./routes/ResponseScoringPage";
+import { MessagingPage } from "./routes/MessagingPage";
 import { WebhooksPage } from "./routes/WebhooksPage";
 import { EnvironmentsPage } from "./routes/EnvironmentsPage";
 import { CatalogsPage } from "./routes/CatalogsPage";
@@ -63,6 +65,22 @@ export function App() {
           element={
             <RequireRole roles={["ADMIN"]}>
               <ResponseDesignerPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="response-scoring"
+          element={
+            <RequireRole roles={["ADMIN"]}>
+              <ResponseScoringPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="messaging"
+          element={
+            <RequireRole roles={["ADMIN"]}>
+              <MessagingPage />
             </RequireRole>
           }
         />

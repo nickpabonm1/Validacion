@@ -1,4 +1,4 @@
-import type { ValidationExecutionListItemDto } from "@fad-console/shared-types";
+import { computeDocumentCheckScore, type NormalizedValidationDetail, type ValidationExecutionListItemDto } from "@fad-console/shared-types";
 import {
   ValidationRequestConfigSchema,
   pruneEmptyRequestFields,
@@ -19,6 +19,7 @@ import { assertWithinScope, type ClientScope } from "../clients/client-scope";
 import { buildNormalizedValidationDetail } from "../../normalize/validation-detail";
 import { maskEmail, maskName } from "../../normalize/mask";
 import { normalizeValidationStatus, normalizeResult } from "../../normalize/status";
+import { getDocumentCheckScoringConfig, toDocumentCheckScoringConfigDto } from "../document-check-scoring/document-check-scoring.service";
 
 interface StoredResponses {
   create: CreateValidationResponse | null;
@@ -30,6 +31,25 @@ type ExecutionRecord = Awaited<ReturnType<typeof prisma.validationExecution.find
 
 function adapterFor(isDemo: boolean) {
   return isDemo ? fadDemoAdapter : fadApiAdapter;
+}
+
+/**
+ * Aplica el rechazo automático por no concordancia documental: cuando la configuración de
+ * puntuación (`document-check-scoring`, editable en "Configuración de la respuesta") tiene un
+ * umbral configurado y el porcentaje calculado de `documentChecks` (Validación de ID) queda por
+ * debajo, se sobreescribe `result` a "REJECTED" — es una decisión de negocio de esta consola, así
+ * que nunca se toca `rawResult` (lo que FAD realmente devolvió) y se deja constancia del motivo en
+ * `documentCheckRejection` para que el reporte lo explique. Sin umbral configurado (`passThreshold:
+ * null`, el valor por defecto) o sin checks aún evaluados, no hace nada — `detail.result` sigue
+ * siendo el que FAD reportó.
+ */
+async function applyDocumentCheckRejection(detail: NormalizedValidationDetail): Promise<void> {
+  const config = toDocumentCheckScoringConfigDto(await getDocumentCheckScoringConfig());
+  const score = computeDocumentCheckScore(detail.documentChecks, config.categoryWeights, config.passThreshold);
+  if (score.passed === false && score.percentage !== null && config.passThreshold !== null) {
+    detail.result = "REJECTED";
+    detail.documentCheckRejection = { percentage: score.percentage, threshold: config.passThreshold };
+  }
 }
 
 async function recomputeAndPersist(
@@ -69,6 +89,8 @@ async function recomputeAndPersist(
     dataResponse: responses.data,
     stepTimestamps,
   });
+
+  await applyDocumentCheckRejection(detail);
 
   const completedAt = detail.status === "COMPLETED" && detail.completedAt ? new Date(detail.completedAt) : execution.completedAt;
 
