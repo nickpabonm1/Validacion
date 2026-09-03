@@ -238,8 +238,8 @@ export function EnvironmentsPage() {
                   <span>
                     <span className="block font-medium">Web SDK</span>
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      La captura de documento (Acuant) y prueba de vida (Facetec) corren embebidas en el navegador,
-                      orquestadas por esta consola.
+                      La captura de documento (R/A/S — motor configurable) y prueba de vida (Facetec) corren
+                      embebidas en el navegador, orquestadas por esta consola.
                     </span>
                   </span>
                 </button>

@@ -41,6 +41,15 @@ export type IntegrationModel = (typeof INTEGRATION_MODELS)[number];
 export const DOCUMENT_CAPTURE_ENGINES = ["ACUANT", "REGULA", "CAPTURE_ID"] as const;
 export type DocumentCaptureEngine = (typeof DOCUMENT_CAPTURE_ENGINES)[number];
 
+/** Código corto asignado a cada proveedor de captura documental — pedido del cliente: la
+ * identificación visible del proveedor (catálogos, configuración, filtros, reportes) debe usar
+ * únicamente este código, no el nombre completo. R = Regula, A = Acuant, S = CaptureID. */
+export const DOCUMENT_CAPTURE_ENGINE_CODES: Record<DocumentCaptureEngine, string> = {
+  REGULA: "R",
+  ACUANT: "A",
+  CAPTURE_ID: "S",
+};
+
 /** CaptureType de `startRegula()`: DOCUMENT_READER (automático) | CAMERA_SNAPSHOT (manual).
  * El PDF "FAD SDK Web Regula" §Initiate the Process también documenta un tercer valor `DESKTOP`
  * (carga de archivo), pero el enum `RegulaCaptureType` del paquete instalado

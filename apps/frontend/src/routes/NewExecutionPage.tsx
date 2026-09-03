@@ -160,7 +160,7 @@ export function NewExecutionPage() {
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">{env.environmentType} · {env.baseUrl}</p>
                       {env.integrationModel === "WEB_SDK" ? (
-                        <p className="mt-1 text-xs text-primary">La captura corre en el navegador (Acuant + Facetec) →</p>
+                        <p className="mt-1 text-xs text-primary">La captura corre en el navegador (R/A/S + Facetec) →</p>
                       ) : null}
                     </button>
                   ))}

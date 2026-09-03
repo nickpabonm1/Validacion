@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Upload } from "lucide-react";
 import { WebSdkConfigInputSchema, DEFAULT_ONBOARDING_MESSAGES, type WebSdkConfigInput } from "@fad-console/validation-schemas";
-import type { WebSdkConfigDto } from "@fad-console/shared-types";
+import { DOCUMENT_CAPTURE_ENGINE_CODES, type WebSdkConfigDto } from "@fad-console/shared-types";
 import {
   useWebSdkConfig,
   useUpdateWebSdkConfig,
@@ -290,18 +290,14 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Captura de documento (
-            {values.documentCaptureEngine === "REGULA" ? "Regula" : values.documentCaptureEngine === "CAPTURE_ID" ? "CaptureId" : "Acuant"}
-            )
-          </CardTitle>
+          <CardTitle>Captura de documento ({DOCUMENT_CAPTURE_ENGINE_CODES[values.documentCaptureEngine]})</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <Field label="Motor de captura" htmlFor="documentCaptureEngine">
+          <Field label="Motor de captura" htmlFor="documentCaptureEngine" hint="R = Regula · A = Acuant · S = CaptureID">
             <Select id="documentCaptureEngine" {...register("documentCaptureEngine")}>
-              <option value="ACUANT">Acuant</option>
-              <option value="REGULA">Regula</option>
-              <option value="CAPTURE_ID">CaptureId</option>
+              <option value="ACUANT">A</option>
+              <option value="REGULA">R</option>
+              <option value="CAPTURE_ID">S</option>
             </Select>
           </Field>
           <div />
