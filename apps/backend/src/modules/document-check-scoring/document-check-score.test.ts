@@ -117,4 +117,59 @@ describe("computeDocumentCheckScore", () => {
       expect(score.percentage).toBe(100);
     });
   });
+
+  describe("featureWeights (subpeso por característica dentro de una categoría)", () => {
+    it("sin featureWeights configurado para la categoría, cada característica pesa el 100% de su categoría (igual que antes de que existieran subpesos)", () => {
+      const checks = [
+        check({ category: "authenticity", name: "hologram", result: "OK" }),
+        check({ category: "authenticity", name: "microprint", result: "ERROR" }),
+      ];
+      const withoutFeatureWeights = computeDocumentCheckScore(checks, { authenticity: 10 }, null, false);
+      const withEmptyFeatureWeights = computeDocumentCheckScore(checks, { authenticity: 10 }, null, false, {});
+      expect(withEmptyFeatureWeights).toEqual(withoutFeatureWeights);
+      expect(withoutFeatureWeights.totalWeight).toBe(20);
+      expect(withoutFeatureWeights.achievedWeight).toBe(10);
+    });
+
+    it("reparte el peso de la categoría entre sus características según el subpeso configurado", () => {
+      const checks = [
+        check({ category: "authenticity", name: "hologram", result: "OK" }),
+        check({ category: "authenticity", name: "microprint", result: "ERROR" }),
+      ];
+      const score = computeDocumentCheckScore(checks, { authenticity: 10 }, null, false, {
+        authenticity: { hologram: 80, microprint: 20 },
+      });
+      // hologram: 10 * 80/100 = 8 (logrado, OK); microprint: 10 * 20/100 = 2 (no logrado, ERROR)
+      expect(score.totalWeight).toBe(10);
+      expect(score.achievedWeight).toBe(8);
+      expect(score.percentage).toBe(80);
+    });
+
+    it("una característica NO listada en una categoría con subpesos configurados pesa 0 (no infla el puntaje por sorpresa)", () => {
+      const checks = [
+        check({ category: "authenticity", name: "hologram", result: "OK" }),
+        check({ category: "authenticity", name: "caracteristica-nueva-no-clasificada", result: "OK" }),
+      ];
+      const score = computeDocumentCheckScore(checks, { authenticity: 10 }, null, false, {
+        authenticity: { hologram: 100 },
+      });
+      expect(score.totalWeight).toBe(10); // hologram: 10*100/100=10, la no listada: 10*0/100=0
+      expect(score.achievedWeight).toBe(10);
+      expect(score.percentage).toBe(100);
+    });
+
+    it("el subpeso de una categoría no afecta a las características de otra categoría", () => {
+      const checks = [
+        check({ category: "authenticity", name: "hologram", result: "OK" }),
+        check({ category: "imageQuality", name: "hologram", result: "OK" }),
+      ];
+      const score = computeDocumentCheckScore(checks, { authenticity: 10, imageQuality: 10 }, null, false, {
+        authenticity: { hologram: 50 },
+      });
+      const authenticity = score.byCategory.find((c) => c.category === "authenticity");
+      const imageQuality = score.byCategory.find((c) => c.category === "imageQuality");
+      expect(authenticity?.totalWeight).toBe(5); // 10 * 50/100
+      expect(imageQuality?.totalWeight).toBe(10); // sin subpesos configurados para imageQuality: peso completo
+    });
+  });
 });

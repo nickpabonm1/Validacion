@@ -12,8 +12,18 @@ import type { NormalizedDocumentCheck } from "./normalized";
  */
 export interface DocumentCheckScoringConfigDto {
   /** Peso por categoría (`textCrossChecks`, `imageQuality`, `mrzCheckDigit`, `dateChecks`,
-   * `authenticity`, `documentValidation`). Una categoría ausente pesa 1 (peso neutro). */
+   * `authenticity`, `documentValidation`). Una categoría ausente pesa 1 (peso neutro, comportamiento
+   * histórico). Cuando se usa como "Prioridad de calificación por categoría" (porcentaje 1-100), las
+   * categorías activas (peso > 0) deben sumar 100 — validado en `DocumentCheckScoringConfigInputSchema`,
+   * no aquí (esta función pura acepta cualquier número, solo pondera). */
   categoryWeights: Record<string, number>;
+  /** Subpeso por característica (`check.name`) DENTRO de cada categoría — `featureWeights[category][name]`,
+   * porcentaje 1-100. Cuando una categoría NO tiene entrada aquí, cada una de sus características pesa
+   * 100 (el peso de la categoría se reparte completo, igual que antes de que existieran subpesos).
+   * Cuando una categoría SÍ tiene entrada, una característica ausente de ese mapa pesa 0 (el operador
+   * definió una repartición explícita y completa; algo fuera de ella no debe sumar puntos por sorpresa).
+   * Los subpesos de las características listadas de una misma categoría deben sumar 100. */
+  featureWeights: Record<string, Record<string, number>>;
   /** Porcentaje mínimo (0-100) para considerar la validación de documento "aprobada". `null` =
    * sin umbral configurado — el reporte solo muestra el porcentaje, sin veredicto. */
   passThreshold: number | null;
@@ -70,16 +80,31 @@ function round1(value: number): number {
  * checks SÍ restan al porcentaje (cuentan como fallo) — una decisión de negocio explícita, nunca
  * el comportamiento por defecto. `evaluatedCount`/`skippedCount` siempre reflejan lo que FAD
  * realmente evaluó o no, sin importar esta bandera — es información sobre el proveedor, no sobre
- * la política de puntuación. El peso y el umbral también son una decisión de negocio del operador
- * (`DocumentCheckScoringConfigDto`), nunca algo que este cálculo decida por su cuenta. Usada tanto
+ * la política de puntuación. El peso de cada check es compuesto: peso de su categoría × (subpeso de
+ * su característica / 100) — ver `resolveFeatureWeight`. El peso, el subpeso y el umbral son una
+ * decisión de negocio del operador (`DocumentCheckScoringConfigDto`), nunca algo que este cálculo
+ * decida por su cuenta. Usada tanto
  * por el frontend (reporte, vista previa en vivo) como por el backend (`executions.service.ts`,
  * para decidir el rechazo automático).
  */
+/** Subpeso (0-100) de una característica dentro de su categoría. Ver el comentario de
+ * `featureWeights` en `DocumentCheckScoringConfigDto` para la lógica del valor por defecto. */
+function resolveFeatureWeight(
+  category: string,
+  name: string,
+  featureWeights: Record<string, Record<string, number>>,
+): number {
+  const configured = featureWeights[category];
+  if (!configured) return 100;
+  return configured[name] ?? 0;
+}
+
 export function computeDocumentCheckScore(
   checks: NormalizedDocumentCheck[],
   categoryWeights: Record<string, number>,
   passThreshold: number | null,
   treatNotDoneAsFailure = false,
+  featureWeights: Record<string, Record<string, number>> = {},
 ): DocumentCheckScore {
   const byCategory = new Map<string, { totalWeight: number; achievedWeight: number }>();
   let totalWeight = 0;
@@ -95,7 +120,9 @@ export function computeDocumentCheckScore(
     } else {
       evaluatedCount += 1;
     }
-    const weight = categoryWeights[check.category] ?? 1;
+    const categoryWeight = categoryWeights[check.category] ?? 1;
+    const featureWeight = resolveFeatureWeight(check.category, check.name, featureWeights);
+    const weight = categoryWeight * (featureWeight / 100);
     const achieved = tone === "success" ? weight : 0;
 
     totalWeight += weight;

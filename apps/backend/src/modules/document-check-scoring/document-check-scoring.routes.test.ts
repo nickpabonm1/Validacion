@@ -59,7 +59,7 @@ describe("document-check-scoring.routes: lectura para cualquier rol, escritura s
     const res = await request(app)
       .put("/api/document-check-scoring")
       .set("Cookie", operatorCookie)
-      .send({ categoryWeights: { authenticity: 5 }, passThreshold: 90 });
+      .send({ categoryWeights: { authenticity: 100 }, passThreshold: 90 });
     expect(res.status).toBe(403);
   });
 
@@ -67,13 +67,68 @@ describe("document-check-scoring.routes: lectura para cualquier rol, escritura s
     const putRes = await request(app)
       .put("/api/document-check-scoring")
       .set("Cookie", adminCookie)
-      .send({ categoryWeights: { authenticity: 5, imageQuality: 1 }, passThreshold: 90, treatNotDoneAsFailure: true });
+      .send({ categoryWeights: { authenticity: 80, imageQuality: 20 }, passThreshold: 90, treatNotDoneAsFailure: true });
     expect(putRes.status).toBe(200);
     expect(putRes.body.documentCheckScoringConfig.passThreshold).toBe(90);
     expect(putRes.body.documentCheckScoringConfig.treatNotDoneAsFailure).toBe(true);
 
     const getRes = await request(app).get("/api/document-check-scoring").set("Cookie", operatorCookie);
-    expect(getRes.body.documentCheckScoringConfig.categoryWeights).toEqual({ authenticity: 5, imageQuality: 1 });
+    expect(getRes.body.documentCheckScoringConfig.categoryWeights).toEqual({ authenticity: 80, imageQuality: 20 });
     expect(getRes.body.documentCheckScoringConfig.treatNotDoneAsFailure).toBe(true);
+  });
+
+  it("GET /known-features expone los nombres de característica ya observados, agrupados por categoría", async () => {
+    const res = await request(app).get("/api/document-check-scoring/known-features").set("Cookie", operatorCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.knownFeatures).toEqual(expect.any(Object));
+  });
+
+  it("rechaza pesos de categoría que no suman 100% (incompletos)", async () => {
+    const res = await request(app)
+      .put("/api/document-check-scoring")
+      .set("Cookie", adminCookie)
+      .send({ categoryWeights: { authenticity: 40, imageQuality: 20 }, passThreshold: null });
+    expect(res.status).toBe(400);
+  });
+
+  it("rechaza pesos de categoría que superan 100% en total", async () => {
+    const res = await request(app)
+      .put("/api/document-check-scoring")
+      .set("Cookie", adminCookie)
+      .send({ categoryWeights: { authenticity: 80, imageQuality: 40 }, passThreshold: null });
+    expect(res.status).toBe(400);
+  });
+
+  it("rechaza subpesos de característica dentro de una categoría que no suman 100%", async () => {
+    const res = await request(app)
+      .put("/api/document-check-scoring")
+      .set("Cookie", adminCookie)
+      .send({
+        categoryWeights: { authenticity: 100 },
+        featureWeights: { authenticity: { hologram: 50, microprint: 30 } },
+        passThreshold: null,
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it("acepta y guarda subpesos de característica que suman 100% dentro de una categoría", async () => {
+    const res = await request(app)
+      .put("/api/document-check-scoring")
+      .set("Cookie", adminCookie)
+      .send({
+        categoryWeights: { authenticity: 100 },
+        featureWeights: { authenticity: { hologram: 60, microprint: 40 } },
+        passThreshold: null,
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.documentCheckScoringConfig.featureWeights).toEqual({ authenticity: { hologram: 60, microprint: 40 } });
+  });
+
+  it("una categoría desactivada (peso 0) no cuenta para la validación de suma 100%", async () => {
+    const res = await request(app)
+      .put("/api/document-check-scoring")
+      .set("Cookie", adminCookie)
+      .send({ categoryWeights: { authenticity: 100, imageQuality: 0 }, passThreshold: null });
+    expect(res.status).toBe(200);
   });
 });

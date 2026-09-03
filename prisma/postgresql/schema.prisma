@@ -527,7 +527,10 @@ model MessagingConfig {
 model DocumentCheckScoringConfig {
   id String @id @default("singleton")
 
-  categoryWeights       String  @default("{}")
+  categoryWeights String @default("{}")
+  /// JSON serializado: Record<category, Record<featureName, subpeso 1-100>> — ver
+  /// `DocumentCheckScoringConfigDto.featureWeights` en shared-types.
+  featureWeights        String  @default("{}")
   passThreshold         Int?
   treatNotDoneAsFailure Boolean @default(false)
 

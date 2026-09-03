@@ -4,6 +4,7 @@ import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middlew
 import { logAudit } from "../audit/audit.service";
 import {
   getDocumentCheckScoringConfig,
+  listKnownDocumentCheckFeatures,
   toDocumentCheckScoringConfigDto,
   upsertDocumentCheckScoringConfig,
 } from "./document-check-scoring.service";
@@ -18,6 +19,18 @@ documentCheckScoringRouter.get("/", async (_req, res, next) => {
   try {
     const config = await getDocumentCheckScoringConfig();
     res.json({ documentCheckScoringConfig: toDocumentCheckScoringConfigDto(config) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Nombres de característica ya observados en ejecuciones reales, agrupados por categoría — para
+ * sugerir al configurar subpesos por característica (ver `listKnownDocumentCheckFeatures`). Mismo
+ * acceso de lectura que la configuración misma. */
+documentCheckScoringRouter.get("/known-features", async (_req, res, next) => {
+  try {
+    const knownFeatures = await listKnownDocumentCheckFeatures();
+    res.json({ knownFeatures });
   } catch (error) {
     next(error);
   }

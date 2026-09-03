@@ -50,6 +50,7 @@ async function applyDocumentCheckRejection(detail: NormalizedValidationDetail): 
     config.categoryWeights,
     config.passThreshold,
     config.treatNotDoneAsFailure,
+    config.featureWeights,
   );
   if (score.passed === false && score.percentage !== null && config.passThreshold !== null) {
     detail.result = "REJECTED";
