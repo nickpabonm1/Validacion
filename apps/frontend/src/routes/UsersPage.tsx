@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
+import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { CreateUserInputSchema, type CreateUserInput } from "@fad-console/validation-schemas";
 import type { UserRole } from "@fad-console/shared-types";
 import { useAuth } from "../lib/auth-context";
@@ -26,6 +26,11 @@ export function UsersPage() {
   const [open, setOpen] = useState(false);
   const [clientId, setClientId] = useState("");
   const { data: clients } = useClients();
+  const clientNameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
+
+  const [resetPasswordUser, setResetPasswordUser] = useState<{ id: string; name: string } | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState } = useForm<CreateUserInput>({
     resolver: zodResolver(CreateUserInputSchema),
@@ -115,6 +120,7 @@ export function UsersPage() {
               <tr>
                 <th className="px-4 py-2.5 font-medium">Nombre</th>
                 <th className="px-4 py-2.5 font-medium">Correo</th>
+                <th className="px-4 py-2.5 font-medium">Cliente</th>
                 <th className="px-4 py-2.5 font-medium">Rol</th>
                 <th className="px-4 py-2.5 font-medium">Estado</th>
                 <th className="px-4 py-2.5 font-medium" />
@@ -125,6 +131,9 @@ export function UsersPage() {
                 <tr key={u.id} className="border-t border-border">
                   <td className="px-4 py-2.5">{u.name}</td>
                   <td className="px-4 py-2.5">{u.email}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {u.clientId ? (clientNameById.get(u.clientId) ?? "Cliente eliminado") : "— Plataforma —"}
+                  </td>
                   <td className="px-4 py-2.5">
                     <Select
                       value={u.role}
@@ -155,6 +164,18 @@ export function UsersPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="Restablecer contraseña"
+                      onClick={() => {
+                        setNewPassword("");
+                        setResetPasswordError(null);
+                        setResetPasswordUser({ id: u.id, name: u.name });
+                      }}
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       disabled={u.id === currentUser?.id}
                       onClick={async () => {
                         if (!window.confirm(`¿Eliminar a "${u.name}"?`)) return;
@@ -175,6 +196,54 @@ export function UsersPage() {
           </table>
         </div>
       )}
+
+      <Dialog open={resetPasswordUser !== null} onOpenChange={(next) => !next && setResetPasswordUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restablecer contraseña — {resetPasswordUser?.name}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!resetPasswordUser) return;
+              if (newPassword.length < 10) {
+                setResetPasswordError("Mínimo 10 caracteres.");
+                return;
+              }
+              try {
+                await updateUser.mutateAsync({ id: resetPasswordUser.id, input: { password: newPassword } });
+                notify({ title: "Contraseña actualizada", tone: "success" });
+                setResetPasswordUser(null);
+              } catch (error) {
+                setResetPasswordError((error as Error).message);
+              }
+            }}
+          >
+            <p className="text-xs text-muted-foreground">
+              Las contraseñas se guardan cifradas (hash) y no pueden mostrarse — solo puedes establecer una nueva.
+            </p>
+            <Field label="Nueva contraseña" htmlFor="newPassword" hint="Mínimo 10 caracteres.">
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setResetPasswordError(null);
+                }}
+                autoFocus
+              />
+            </Field>
+            {resetPasswordError ? <p className="text-xs text-destructive">{resetPasswordError}</p> : null}
+            <DialogFooter>
+              <Button type="submit" disabled={updateUser.isPending}>
+                Guardar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
