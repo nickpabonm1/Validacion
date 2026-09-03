@@ -171,12 +171,46 @@ model ApiEnvironment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  templates    ValidationTemplate[]
-  executions   ValidationExecution[]
-  webSdkConfig WebSdkConfig?
-  shareLinks   WebSdkShareLink[]
+  templates       ValidationTemplate[]
+  executions      ValidationExecution[]
+  webSdkConfig    WebSdkConfig?
+  shareLinks      WebSdkShareLink[]
+  naatCheckConfig NaatCheckConfig?
 
   @@map("api_environments")
+}
+
+/// Configuración de NAAT-CHECK (NAAT.TECH "API RECHECK PROCESS") por ambiente — un servicio
+/// EXTERNO a FAD (proveedor propio, servidor OAuth propio) que reevalúa el riesgo de un documento
+/// ya capturado bajo pedido (botón "Reevaluar con NAAT-CHECK" en el detalle de una ejecución).
+/// Distinto de `naatCheckResult` en el detalle normalizado (pasivo, lo devuelve FAD cuando
+/// `steps.captureId.configuration.idValidations.naatCheck.enabled` está activo) y del NAAT-CHECK
+/// del flujo Web SDK (`WebSdkConfig.checkEndpoint`, orquestado dentro de esa misma ejecución) —
+/// ver `apps/backend/src/modules/naat-check/`. `webhookUsernameEnc`/`webhookPasswordEnc` son las
+/// credenciales que EXPONEMOS para que NAAT-CHECK llame de vuelta a nuestro webhook (Basic Auth,
+/// mismo patrón que `ApiEnvironment.webhookUsernameEnc`).
+model NaatCheckConfig {
+  id            String         @id @default(uuid())
+  environmentId String         @unique
+  environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  enabled Boolean @default(false)
+  baseUrl String  @default("https://uat.firmaautografa.com")
+
+  usernameEnc String?
+  passwordEnc String?
+
+  /// RiskLevel (LOW | MEDIUM | HIGH) — el nivel de riesgo máximo que se considera "aceptado". Un
+  /// resultado con un riesgo mayor a este se marca como fallo en el reporte/puntuación.
+  acceptedRiskLevel String @default("LOW")
+
+  webhookUsernameEnc String?
+  webhookPasswordEnc String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("naat_check_configs")
 }
 
 /// Configuración del modelo de integración "Web SDK": captura de documento (Acuant) y prueba de
@@ -346,6 +380,13 @@ model ValidationExecution {
   /// Acuant/Facetec, intentos de NAAT-CHECK, resultado de compareFacesPassive). Se limpia una vez
   /// completado (ver módulo `websdk`). Null en ejecuciones API_BY_STEPS.
   webSdkState String?
+
+  /// JSON serializado ({risk, key, result, requestedAt} — ver `NaatCheckRecheckResultDto`):
+  /// último resultado de un recheck NAAT-CHECK disparado MANUALMENTE sobre esta ejecución (botón
+  /// "Reevaluar con NAAT-CHECK", módulo `naat-check`). Distinto de `naatCheckResult` en el
+  /// detalle normalizado (pasivo, lo devuelve FAD) y de `webSdkState.check` (NAAT-CHECK del flujo
+  /// Web SDK, orquestado dentro de esa misma ejecución). `null` = nunca se disparó un recheck.
+  naatCheckRecheckResult String?
 
   isDemo Boolean @default(false)
 
@@ -527,7 +568,7 @@ model MessagingConfig {
 model DocumentCheckScoringConfig {
   id String @id @default("singleton")
 
-  categoryWeights String @default("{}")
+  categoryWeights       String  @default("{}")
   /// JSON serializado: Record<category, Record<featureName, subpeso 1-100>> — ver
   /// `DocumentCheckScoringConfigDto.featureWeights` en shared-types.
   featureWeights        String  @default("{}")

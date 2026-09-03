@@ -26,6 +26,8 @@ import { messagingConfigRouter } from "./modules/messaging/messaging-config.rout
 import { documentCheckScoringRouter } from "./modules/document-check-scoring/document-check-scoring.routes";
 import { databaseConnectionRouter } from "./modules/database-connection/database-connection.routes";
 import { clientsRouter } from "./modules/clients/clients.routes";
+import { naatCheckConfigRouter } from "./modules/naat-check/naat-check-config.routes";
+import { naatCheckWebhookPublicRouter } from "./modules/naat-check/naat-check-webhook.routes";
 import { errorHandler, notFoundHandler } from "./lib/errors";
 
 export function createApp(): express.Express {
@@ -71,6 +73,7 @@ export function createApp(): express.Express {
   app.use("/api/users", usersRouter);
   app.use("/api/environments", environmentsRouter);
   app.use("/api/environments/:id/websdk-config", websdkConfigRouter);
+  app.use("/api/environments/:id/naat-check-config", naatCheckConfigRouter);
   app.use("/api/providers", providersRouter);
   app.use("/api/templates", templatesRouter);
   // Debe montarse ANTES de /api/executions: evita que "websdk" sea capturado por la ruta
@@ -78,6 +81,7 @@ export function createApp(): express.Express {
   app.use("/api/executions/websdk", websdkFlowRouter);
   app.use("/api/executions", executionsRouter);
   app.use("/api/webhooks", webhooksPublicRouter);
+  app.use("/api/webhooks", naatCheckWebhookPublicRouter);
   app.use("/api/webhooks", webhooksRouter);
   app.use("/api/response-views", responseViewsRouter);
   app.use("/api/audit", auditRouter);

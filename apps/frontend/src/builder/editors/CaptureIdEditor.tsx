@@ -4,12 +4,27 @@ import { useProviders } from "../../features/providers/useProviders";
 import { Field, InlineSwitchField } from "./Field";
 import type { StepEditorProps } from "./types";
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
 export function CaptureIdEditor({ step, onChange }: StepEditorProps) {
   const { data: providers = [] } = useProviders();
   const captureIdProviders = providers.filter((p) => p.providerType === "captureId" && p.enabled);
   const configuration = step.configuration ?? {};
   const features = step.features ?? {};
   const setConfig = (patch: Record<string, unknown>) => onChange({ configuration: { ...configuration, ...patch } });
+
+  // `configuration.idValidations.naatCheck.enabled` — le pide a FAD que corra NAAT-CHECK del lado
+  // del servidor durante esta misma validación; el resultado vuelve en `getValidationData.data.naatCheck`
+  // (expuesto como `naatCheckResult` en el detalle normalizado — ver ReportView). Distinto del NAAT-CHECK
+  // del flujo Web SDK (que esta consola llama directamente): aquí es FAD quien lo ejecuta, solo se activa
+  // con esta bandera.
+  const idValidations = asRecord(configuration.idValidations);
+  const naatCheck = asRecord(idValidations.naatCheck);
+  const naatCheckEnabled = Boolean(naatCheck.enabled);
+  const setNaatCheckEnabled = (value: boolean) =>
+    setConfig({ idValidations: { ...idValidations, naatCheck: { ...naatCheck, enabled: value } } });
 
   return (
     <div className="space-y-4">
@@ -52,6 +67,12 @@ export function CaptureIdEditor({ step, onChange }: StepEditorProps) {
           onChange={(e) => setConfig({ documentDescription: e.target.value })}
         />
       </Field>
+      <InlineSwitchField
+        label="Habilitar NAAT-CHECK"
+        checked={naatCheckEnabled}
+        onChange={setNaatCheckEnabled}
+        hint="Le pide a FAD que ejecute NAAT-CHECK (verificación de riesgo del documento) como parte de esta misma validación. El resultado aparece en el reporte, en la tarjeta «Validación con gobierno / NAAT-CHECK»."
+      />
     </div>
   );
 }

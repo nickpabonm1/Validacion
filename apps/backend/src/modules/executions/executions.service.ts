@@ -1,4 +1,4 @@
-import { computeDocumentCheckScore, type NormalizedValidationDetail, type ValidationExecutionListItemDto } from "@fad-console/shared-types";
+import { computeDocumentCheckScore, type NormalizedValidationDetail, type RiskLevel, type ValidationExecutionListItemDto } from "@fad-console/shared-types";
 import {
   ValidationRequestConfigSchema,
   pruneEmptyRequestFields,
@@ -20,6 +20,7 @@ import { buildNormalizedValidationDetail } from "../../normalize/validation-deta
 import { maskEmail, maskName } from "../../normalize/mask";
 import { normalizeValidationStatus, normalizeResult } from "../../normalize/status";
 import { getDocumentCheckScoringConfig, toDocumentCheckScoringConfigDto } from "../document-check-scoring/document-check-scoring.service";
+import { applyNaatCheckRecheckToDetail } from "../naat-check/naat-check-merge";
 
 interface StoredResponses {
   create: CreateValidationResponse | null;
@@ -95,6 +96,13 @@ async function recomputeAndPersist(
     dataResponse: responses.data,
     stepTimestamps,
   });
+
+  const naatCheckConfig = await prisma.naatCheckConfig.findUnique({ where: { environmentId: execution.environmentId } });
+  applyNaatCheckRecheckToDetail(
+    detail,
+    execution.naatCheckRecheckResult,
+    (naatCheckConfig?.acceptedRiskLevel as RiskLevel | undefined) ?? "LOW",
+  );
 
   await applyDocumentCheckRejection(detail);
 
@@ -359,6 +367,18 @@ export async function syncExecutionStatus(id: string) {
     : null;
   const refreshed = await prisma.validationExecution.findUniqueOrThrow({ where: { id } });
   return recomputeAndPersist(refreshed, environment.name, templateName);
+}
+
+/** Re-deriva `normalizedResponse` a partir de lo YA guardado (sin volver a consultar FAD) —
+ * usado después de guardar un nuevo `naatCheckRecheckResult` (ver módulo `naat-check`) para que
+ * el check sintético de la reevaluación aparezca de inmediato en el reporte/puntuación, sin
+ * esperar al siguiente `syncExecutionStatus`. */
+export async function recomputeExecutionDetail(id: string, scope?: ClientScope) {
+  const execution = await getExecutionOrThrow(id, scope);
+  const templateName = execution.templateId
+    ? (await prisma.validationTemplate.findUnique({ where: { id: execution.templateId } }))?.name ?? null
+    : null;
+  return recomputeAndPersist(execution, execution.environment.name, templateName);
 }
 
 export async function revealExecutionSecret(id: string, field: "key" | "vector"): Promise<string> {

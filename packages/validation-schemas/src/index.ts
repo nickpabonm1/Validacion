@@ -5,6 +5,9 @@ export * from "./fad/get-step.schema";
 export * from "./fad/get-validation-data.schema";
 export * from "./fad/webhook.schema";
 
+export * from "./naat-check/auth.schema";
+export * from "./naat-check/recheck.schema";
+
 export * from "./request-builder/form.schema";
 export * from "./request-builder/customization.schema";
 export * from "./request-builder/steps.schema";
@@ -22,5 +25,6 @@ export * from "./admin/document-check-scoring.schema";
 export * from "./admin/client.schema";
 export * from "./admin/execution-email.schema";
 export * from "./admin/database-connection.schema";
+export * from "./admin/naat-check.schema";
 
 export * as fixtures from "./fixtures";

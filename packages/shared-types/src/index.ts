@@ -8,3 +8,4 @@ export * from "./normalized";
 export * from "./document-check-scoring";
 export * from "./client";
 export * from "./database-connection";
+export * from "./naat-check";

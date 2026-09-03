@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ApiEnvironmentDto, TestConnectionResultDto, WebSdkConfigDto } from "@fad-console/shared-types";
-import type { ApiEnvironmentInput, WebSdkConfigInput } from "@fad-console/validation-schemas";
+import type { ApiEnvironmentDto, NaatCheckConfigDto, NaatCheckTestConnectionResultDto, TestConnectionResultDto, WebSdkConfigDto } from "@fad-console/shared-types";
+import type { ApiEnvironmentInput, NaatCheckConfigInput, WebSdkConfigInput } from "@fad-console/validation-schemas";
 import { api } from "../../lib/api-client";
 
 export function useEnvironments() {
@@ -80,5 +80,35 @@ export function useClearWebSdkCredential() {
       api.delete<{ webSdkConfig: WebSdkConfigDto }>(`/environments/${environmentId}/websdk-config/credentials/${field}`),
     onSuccess: (_data, { environmentId }) =>
       queryClient.invalidateQueries({ queryKey: ["environments", environmentId, "websdk-config"] }),
+  });
+}
+
+export function useNaatCheckConfig(environmentId: string | undefined) {
+  return useQuery({
+    queryKey: ["environments", environmentId, "naat-check-config"],
+    queryFn: () =>
+      api
+        .get<{ naatCheckConfig: NaatCheckConfigDto | null }>(`/environments/${environmentId}/naat-check-config`)
+        .then((r) => r.naatCheckConfig),
+    enabled: Boolean(environmentId),
+  });
+}
+
+export function useUpdateNaatCheckConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ environmentId, input }: { environmentId: string; input: NaatCheckConfigInput }) =>
+      api.put<{ naatCheckConfig: NaatCheckConfigDto }>(`/environments/${environmentId}/naat-check-config`, input),
+    onSuccess: (_data, { environmentId }) =>
+      queryClient.invalidateQueries({ queryKey: ["environments", environmentId, "naat-check-config"] }),
+  });
+}
+
+export function useTestNaatCheckConnection() {
+  return useMutation({
+    mutationFn: ({ environmentId, input }: { environmentId: string; input: Partial<NaatCheckConfigInput> }) =>
+      api
+        .post<{ result: NaatCheckTestConnectionResultDto }>(`/environments/${environmentId}/naat-check-config/test`, input)
+        .then((r) => r.result),
   });
 }

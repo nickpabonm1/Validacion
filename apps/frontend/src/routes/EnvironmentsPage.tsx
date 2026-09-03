@@ -24,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import { useToast } from "../components/ui/toast";
 import { parsePostmanCollection, type PostmanImportResult } from "../lib/postman-import";
 import { WebSdkConfigForm } from "../components/domain/WebSdkConfigForm";
+import { NaatCheckConfigForm } from "../components/domain/NaatCheckConfigForm";
 import { useClients } from "../features/clients/useClients";
 
 const BLANK: ApiEnvironmentInput = {
@@ -252,6 +253,7 @@ export function EnvironmentsPage() {
             <TabsTrigger value="auth">Autenticación OAuth</TabsTrigger>
             <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
             {activeModel === "API_BY_STEPS" ? <TabsTrigger value="webhooks">Webhooks</TabsTrigger> : null}
+            {activeModel === "API_BY_STEPS" ? <TabsTrigger value="naat-check">NAAT-CHECK</TabsTrigger> : null}
             {activeModel === "WEB_SDK" ? <TabsTrigger value="websdk">Web SDK</TabsTrigger> : null}
           </TabsList>
 
@@ -544,6 +546,12 @@ export function EnvironmentsPage() {
           {activeModel === "WEB_SDK" ? (
           <TabsContent value="websdk">
             <WebSdkConfigForm environmentId={selected?.id ?? null} />
+          </TabsContent>
+          ) : null}
+
+          {activeModel === "API_BY_STEPS" ? (
+          <TabsContent value="naat-check">
+            <NaatCheckConfigForm environmentId={selected?.id ?? null} />
           </TabsContent>
           ) : null}
         </Tabs>

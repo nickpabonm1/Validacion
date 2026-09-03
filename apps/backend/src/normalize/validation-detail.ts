@@ -381,6 +381,10 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
     documentCheckRejection: null,
     governmentValidation,
     naatCheckResult,
+    // Igual criterio que `documentCheckRejection`: esta función es pura (sin acceso a BD), así
+    // que solo pone el valor neutro por defecto; `executions.service.ts` lo sobreescribe con el
+    // resultado guardado del recheck manual (ver módulo `naat-check`).
+    naatCheckRecheckResult: null,
     mediaAssets: extractMediaAssets(steps),
     raw: {
       createResponse: params.createResponse,
