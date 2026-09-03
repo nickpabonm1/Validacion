@@ -12,7 +12,7 @@ export const MessagingConfigInputSchema = z.object({
   smtpUser: z.string().max(300).optional(),
   smtpPassword: z.string().max(500).optional(),
   fromAddress: z.string().email().optional().nullable(),
-  fromName: z.string().max(200).default("FAD Biometrics Console"),
+  fromName: z.string().max(200).default("Biometric Console"),
 
   whatsappApiBaseUrl: z.string().url().default("https://graph.facebook.com/v20.0"),
   whatsappPhoneNumberId: z.string().max(200).optional().nullable(),

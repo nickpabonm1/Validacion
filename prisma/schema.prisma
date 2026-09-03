@@ -542,7 +542,7 @@ model MessagingConfig {
   smtpUserEnc     String?
   smtpPasswordEnc String?
   fromAddress     String?
-  fromName        String  @default("FAD Biometrics Console")
+  fromName        String  @default("Biometric Console")
 
   whatsappApiBaseUrl       String  @default("https://graph.facebook.com/v20.0")
   whatsappPhoneNumberId    String?

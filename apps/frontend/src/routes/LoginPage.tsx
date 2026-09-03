@@ -2,7 +2,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginInputSchema, type LoginInput } from "@fad-console/validation-schemas";
-import { ShieldHalf } from "lucide-react";
+import { Fingerprint } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { useBootstrapStatus } from "../features/auth/useBootstrapStatus";
 import { Button } from "../components/ui/button";
@@ -28,8 +28,8 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
-          <ShieldHalf className="mb-2 h-8 w-8 text-primary" />
-          <CardTitle>FAD Biometrics Console</CardTitle>
+          <Fingerprint className="mb-2 h-8 w-8 text-primary" />
+          <CardTitle>Biometric Console</CardTitle>
           <CardDescription>Ingresa con tu cuenta para continuar</CardDescription>
         </CardHeader>
         <CardContent>

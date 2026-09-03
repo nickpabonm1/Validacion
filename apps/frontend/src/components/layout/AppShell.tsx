@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { LogOut, Moon, Sun, ShieldHalf } from "lucide-react";
+import { LogOut, Moon, Sun, Fingerprint } from "lucide-react";
 import { cn } from "@fad-console/ui";
 import { useAuth } from "../../lib/auth-context";
 import { useTheme } from "../../lib/theme-context";
@@ -37,8 +37,8 @@ export function AppShell() {
             <img src={branding.logoDataUrl} alt={branding.clientName ?? "Logo"} className="h-8 max-w-[9rem] object-contain" />
           ) : (
             <>
-              <ShieldHalf className="h-6 w-6 text-primary" />
-              <span className="text-sm font-semibold tracking-tight">{branding?.clientName ?? "FAD Biometrics Console"}</span>
+              <Fingerprint className="h-6 w-6 text-primary" />
+              <span className="text-sm font-semibold tracking-tight">{branding?.clientName ?? "Biometric Console"}</span>
             </>
           )}
         </div>

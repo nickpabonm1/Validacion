@@ -17,7 +17,7 @@ const BLANK: MessagingConfigInput = {
   smtpPort: 587,
   smtpSecure: false,
   fromAddress: undefined,
-  fromName: "FAD Biometrics Console",
+  fromName: "Biometric Console",
   whatsappApiBaseUrl: "https://graph.facebook.com/v20.0",
   whatsappPhoneNumberId: undefined,
   whatsappTemplateName: undefined,
