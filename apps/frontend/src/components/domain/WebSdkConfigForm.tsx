@@ -10,6 +10,7 @@ import {
   useClearWebSdkCredential,
 } from "../../features/environments/useEnvironments";
 import { parseWebSdkConfigImport } from "../../lib/websdk-config-import";
+import { parseFadEnvironmentImport } from "../../lib/fad-environment-import";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input, Textarea } from "../ui/input";
 import { Select } from "../ui/select";
@@ -103,7 +104,18 @@ function JsonBlobField({
   );
 }
 
-export function WebSdkConfigForm({ environmentId }: { environmentId: string | null }) {
+export function WebSdkConfigForm({
+  environmentId,
+  pendingImport,
+  onPendingImportConsumed,
+}: {
+  environmentId: string | null;
+  /** Campos Web SDK ya traducidos desde un archivo subido en otra pestaña de la misma página (ver
+   * el importador unificado de EnvironmentsPage) — se aplican una vez y luego se limpian con
+   * `onPendingImportConsumed` para no reaplicarlos en cada render. */
+  pendingImport?: Partial<WebSdkConfigInput> | null;
+  onPendingImportConsumed?: () => void;
+}) {
   const { data: config, isLoading } = useWebSdkConfig(environmentId ?? undefined);
   const updateConfig = useUpdateWebSdkConfig();
   const clearCredential = useClearWebSdkCredential();
@@ -133,6 +145,29 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
     setProductionKeyTextJson("");
   }, [config, reset]);
 
+  /** Aplica los campos de un import (propios o traducidos desde un environment.ts del proveedor)
+   * al formulario — separado de `handleImportConfigFile` para poder reusarlo con el resultado ya
+   * calculado en el padre (ver prop `pendingImport`, usado desde EnvironmentsPage cuando el mismo
+   * archivo también trae credenciales de la pestaña «Autenticación OAuth»). */
+  function applyImportedValues(values: Partial<WebSdkConfigInput>) {
+    for (const [key, value] of Object.entries(values) as [keyof WebSdkConfigInput, never][]) {
+      if (key === "acuantConfiguration") setAcuantConfigurationText(JSON.stringify(value, null, 2));
+      else if (key === "regulaConfiguration") setRegulaConfigurationText(JSON.stringify(value, null, 2));
+      else if (key === "captureIdConfiguration") setCaptureIdConfigurationText(JSON.stringify(value, null, 2));
+      else if (key === "facetecMiddleware") setFacetecMiddlewareText(JSON.stringify(value, null, 2));
+      else if (key === "facetecConfiguration") setFacetecConfigurationText(JSON.stringify(value, null, 2));
+      else if (key === "facetecProductionKeyText") setProductionKeyTextJson(JSON.stringify(value));
+      else setValue(key, value, { shouldDirty: true, shouldValidate: true });
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingImport || Object.keys(pendingImport).length === 0) return;
+    applyImportedValues(pendingImport);
+    onPendingImportConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe correr cuando llega un import nuevo, no en cada render por identidad de las funciones.
+  }, [pendingImport]);
+
   const values = watch();
 
   if (!environmentId) {
@@ -144,32 +179,37 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
   // dentro de las funciones anidadas de más abajo.
   const envId = environmentId;
 
-  /** Importa un archivo JSON de configuración Web SDK (ver docs/examples/websdk-config.example.json):
-   * mismo shape que este formulario. Solo aplica los campos que el archivo trae explícitamente —
-   * el resto del formulario queda intacto. Nunca se persiste hasta que el operador pulsa
-   * «Guardar configuración Web SDK». */
+  /** Importa un archivo de configuración Web SDK subido por el operador: primero intenta el
+   * formato JSON propio de esta consola (ver docs/examples/websdk-config.example.json — mismo
+   * shape que este formulario); si el archivo no es JSON válido (por ejemplo, el `environment.ts`
+   * de los proyectos de ejemplo del proveedor, con `import`/comentarios/comillas simples), lo
+   * interpreta con `parseFadEnvironmentImport` y traduce sus campos auth/sdk/acuant/regula/facetec
+   * a este mismo formulario. En ambos casos solo aplica los campos que el archivo trae
+   * explícitamente — el resto del formulario queda intacto, y nunca se persiste hasta que el
+   * operador pulsa «Guardar configuración Web SDK». */
   async function handleImportConfigFile(file: File) {
     try {
       const text = await file.text();
-      const raw = JSON.parse(text);
-      const result = parseWebSdkConfigImport(raw);
-
-      for (const [key, value] of Object.entries(result.values) as [keyof WebSdkConfigInput, never][]) {
-        if (key === "acuantConfiguration") setAcuantConfigurationText(JSON.stringify(value, null, 2));
-        else if (key === "regulaConfiguration") setRegulaConfigurationText(JSON.stringify(value, null, 2));
-        else if (key === "captureIdConfiguration") setCaptureIdConfigurationText(JSON.stringify(value, null, 2));
-        else if (key === "facetecMiddleware") setFacetecMiddlewareText(JSON.stringify(value, null, 2));
-        else if (key === "facetecConfiguration") setFacetecConfigurationText(JSON.stringify(value, null, 2));
-        else if (key === "facetecProductionKeyText") setProductionKeyTextJson(JSON.stringify(value));
-        else setValue(key, value, { shouldDirty: true, shouldValidate: true });
+      let matched: string[];
+      let warnings: string[];
+      try {
+        const result = parseWebSdkConfigImport(JSON.parse(text));
+        applyImportedValues(result.values);
+        matched = result.matched;
+        warnings = result.warnings;
+      } catch {
+        const result = parseFadEnvironmentImport(text);
+        applyImportedValues(result.webSdkValues);
+        matched = result.matched;
+        warnings = result.warnings;
       }
 
       notify({
         title: "Configuración Web SDK importada",
         description:
-          `${result.matched.length} campo(s) completados desde «${file.name}». Revisa antes de guardar.` +
-          (result.warnings.length > 0 ? ` ${result.warnings.join(" ")}` : ""),
-        tone: result.warnings.length > 0 ? "warning" : "success",
+          `${matched.length} campo(s) completados desde «${file.name}». Revisa antes de guardar.` +
+          (warnings.length > 0 ? ` ${warnings.join(" ")}` : ""),
+        tone: warnings.length > 0 ? "warning" : "success",
       });
     } catch (error) {
       notify({
@@ -242,16 +282,18 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-          Sube un archivo JSON con credenciales/endpoints Web SDK en vez de escribirlos a mano — ver{" "}
+          Sube un archivo con credenciales/endpoints Web SDK en vez de escribirlos a mano: el JSON propio de esta
+          consola (ver{" "}
           <code className="rounded bg-muted px-1 py-0.5">docs/examples/websdk-config.example.json</code> (Acuant),{" "}
           <code className="rounded bg-muted px-1 py-0.5">websdk-config-regula.example.json</code> (Regula) o{" "}
-          <code className="rounded bg-muted px-1 py-0.5">websdk-config-captureid.example.json</code> (CaptureId) en el
-          repositorio.
+          <code className="rounded bg-muted px-1 py-0.5">websdk-config-captureid.example.json</code> (CaptureId)), o
+          directamente el <code className="rounded bg-muted px-1 py-0.5">environment.ts</code> de los proyectos de
+          ejemplo del proveedor (fad-demo-v1/v2) — se detecta el formato automáticamente.
         </p>
         <input
           ref={importFileInputRef}
           type="file"
-          accept="application/json"
+          accept="application/json,.json,.ts,.js,text/plain,text/typescript"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -260,7 +302,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
           }}
         />
         <Button type="button" variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => importFileInputRef.current?.click()}>
-          <Upload className="h-4 w-4" /> Importar configuración (JSON)
+          <Upload className="h-4 w-4" /> Importar configuración (JSON o environment.ts)
         </Button>
       </div>
 

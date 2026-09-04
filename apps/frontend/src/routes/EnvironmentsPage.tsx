@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Globe, Plus, Smartphone, Upload, X, XCircle } from "lucide-react";
-import { ApiEnvironmentInputSchema, type ApiEnvironmentInput } from "@fad-console/validation-schemas";
+import { ApiEnvironmentInputSchema, type ApiEnvironmentInput, type WebSdkConfigInput } from "@fad-console/validation-schemas";
 import type { ApiEnvironmentDto, IntegrationModel } from "@fad-console/shared-types";
 import {
   useEnvironments,
@@ -23,6 +23,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { useToast } from "../components/ui/toast";
 import { parsePostmanCollection, type PostmanImportResult } from "../lib/postman-import";
+import { parseFadEnvironmentImport } from "../lib/fad-environment-import";
 import { WebSdkConfigForm } from "../components/domain/WebSdkConfigForm";
 import { NaatCheckConfigForm } from "../components/domain/NaatCheckConfigForm";
 import { ExternalApiKeyPanel } from "../components/domain/ExternalApiKeyPanel";
@@ -87,11 +88,14 @@ export function EnvironmentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [importResult, setImportResult] = useState<PostmanImportResult | null>(null);
+  const [fadImportResult, setFadImportResult] = useState<{ fileName: string; matched: string[]; warnings: string[] } | null>(null);
+  const [pendingWebSdkImport, setPendingWebSdkImport] = useState<Partial<WebSdkConfigInput> | null>(null);
   // Al crear un ambiente nuevo, el modelo de integración se elige primero (pantalla separada) y
   // ya no cambia: API by-steps y Web SDK son flujos distintos con pestañas distintas, no un
   // interruptor dentro del mismo formulario (ver aviso del usuario: "no deben estar juntos").
   const [newEnvModel, setNewEnvModel] = useState<IntegrationModel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fadFileInputRef = useRef<HTMLInputElement>(null);
   const selected = environments.find((e) => e.id === selectedId) ?? null;
   const activeModel: IntegrationModel | null = selected ? selected.integrationModel : newEnvModel;
 
@@ -105,6 +109,8 @@ export function EnvironmentsPage() {
     reset(selected ? toFormValues(selected) : BLANK);
     setTestResult(null);
     setImportResult(null);
+    setFadImportResult(null);
+    setPendingWebSdkImport(null);
     setNewEnvModel(null);
   }, [selected, reset]);
 
@@ -135,6 +141,37 @@ export function EnvironmentsPage() {
     }
   }
 
+  /** Importa un `environment.ts` de los proyectos de ejemplo del proveedor (fad-demo-v1/v2):
+   * completa de una vez las credenciales OAuth (pestaña «Autenticación») y, si el ambiente es
+   * Web SDK, las de Acuant/Regula/Facetec/token del SDK — se traducen los campos reconocidos
+   * (ver `parseFadEnvironmentImport`) y se dejan en el formulario para revisar antes de guardar,
+   * nunca se persisten solas. Los campos Web SDK se pasan a `WebSdkConfigForm` (formulario propio,
+   * ver prop `pendingImport`) porque vive en su propia pestaña con su propio estado. */
+  async function handleImportFadEnvironmentFile(file: File) {
+    try {
+      const text = await file.text();
+      const result = parseFadEnvironmentImport(text);
+      for (const [field, value] of Object.entries(result.environmentValues) as [keyof ApiEnvironmentInput, never][]) {
+        setValue(field, value, { shouldDirty: true, shouldValidate: true });
+      }
+      if (Object.keys(result.webSdkValues).length > 0) {
+        setPendingWebSdkImport(result.webSdkValues);
+      }
+      setFadImportResult({ fileName: file.name, matched: result.matched, warnings: result.warnings });
+      notify({
+        title: "Archivo del proveedor importado",
+        description: `${result.matched.length} campo(s) completados desde «${file.name}». Revisa antes de guardar.`,
+        tone: result.warnings.length > 0 ? "warning" : "success",
+      });
+    } catch (error) {
+      notify({
+        title: "No se pudo importar el archivo",
+        description: error instanceof Error ? error.message : "Archivo inválido",
+        tone: "error",
+      });
+    }
+  }
+
   async function onSubmit(values: ApiEnvironmentInput) {
     try {
       if (selected) {
@@ -158,22 +195,40 @@ export function EnvironmentsPage() {
         title="Configuración > Conexiones API"
         description="Ambientes y credenciales de conexión con el proveedor de biometría."
         actions={
-          activeModel === "WEB_SDK" ? null : (
+          activeModel === null ? null : (
             <>
               <input
-                ref={fileInputRef}
+                ref={fadFileInputRef}
                 type="file"
-                accept="application/json"
+                accept="application/json,.json,.ts,.js,text/plain,text/typescript"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) void handleImportPostmanFile(file);
+                  if (file) void handleImportFadEnvironmentFile(file);
                   e.target.value = "";
                 }}
               />
-              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4" /> Importar colección Postman
+              <Button variant="outline" size="sm" onClick={() => fadFileInputRef.current?.click()}>
+                <Upload className="h-4 w-4" /> Importar environment.ts del proveedor
               </Button>
+              {activeModel === "WEB_SDK" ? null : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleImportPostmanFile(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-4 w-4" /> Importar colección Postman
+                  </Button>
+                </>
+              )}
             </>
           )
         }
@@ -260,6 +315,36 @@ export function EnvironmentsPage() {
           </TabsList>
 
           <form onSubmit={handleSubmit(onSubmit)}>
+          {fadImportResult ? (
+            <div
+              className={`mb-4 rounded-lg border p-4 text-sm ${
+                fadImportResult.warnings.length > 0 ? "border-warning/30 bg-warning/5" : "border-success/30 bg-success/5"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium">
+                  Importado desde &quot;{fadImportResult.fileName}&quot;: {fadImportResult.matched.length} campo(s)
+                  completado(s) (Autenticación{activeModel === "WEB_SDK" ? " + Web SDK" : ""}). Revisa los datos en
+                  las pestañas y guarda para confirmar.
+                </p>
+                <button
+                  type="button"
+                  aria-label="Cerrar aviso de importación"
+                  onClick={() => setFadImportResult(null)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {fadImportResult.warnings.length > 0 ? (
+                <ul className="mt-2 list-inside list-disc space-y-0.5 text-xs text-warning">
+                  {fadImportResult.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
           {importResult ? (
             <div
               className={`mb-4 rounded-lg border p-4 text-sm ${
@@ -547,7 +632,11 @@ export function EnvironmentsPage() {
 
           {activeModel === "WEB_SDK" ? (
           <TabsContent value="websdk">
-            <WebSdkConfigForm environmentId={selected?.id ?? null} />
+            <WebSdkConfigForm
+              environmentId={selected?.id ?? null}
+              pendingImport={pendingWebSdkImport}
+              onPendingImportConsumed={() => setPendingWebSdkImport(null)}
+            />
           </TabsContent>
           ) : null}
 
