@@ -3,7 +3,7 @@ import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../lib/prisma";
 import { toJsonField } from "../../lib/json-field";
-import { clearCachedToken } from "../fad-adapter/token-cache";
+import { clearCachedToken, setCachedToken } from "../fad-adapter/token-cache";
 
 const app = createApp();
 
@@ -61,7 +61,9 @@ describe("POST /api/executions/:id/naat-check — recheck manual", () => {
   /** Cada prueba crea su propia ejecución: un recheck exitoso vuelve a derivar
    * `normalizedResponse` desde los datos crudos de FAD (aquí vacíos), lo que borraría
    * `mediaAssets` para una prueba posterior que reutilizara la misma ejecución. */
-  async function createFixtureExecution(): Promise<string> {
+  async function createFixtureExecution(
+    overrides?: { mediaAssets?: unknown[]; files?: unknown[] },
+  ): Promise<string> {
     const normalizedResponse = {
       validationId: "v1",
       processName: "Proceso de prueba",
@@ -79,11 +81,12 @@ describe("POST /api/executions/:id/naat-check — recheck manual", () => {
       governmentValidation: null,
       naatCheckResult: null,
       naatCheckRecheckResult: null,
-      mediaAssets: [
+      mediaAssets: overrides?.mediaAssets ?? [
         { id: "captureId:ID_VA_FRONT", stepKey: "captureId", label: "ID_VA_FRONT", mimeType: "image/jpeg", dataUrl: "data:image/jpeg;base64,ZmFrZS1mcm9udC1pbWFnZQ==" },
         { id: "captureId:ID_VA_BACK", stepKey: "captureId", label: "ID_VA_BACK", mimeType: "image/jpeg", dataUrl: "data:image/jpeg;base64,ZmFrZS1iYWNrLWltYWdl" },
         { id: "liveness:selfie", stepKey: "liveness", label: "selfie", mimeType: "image/jpeg", dataUrl: "data:image/jpeg;base64,ZmFrZS1zZWxmaWU=" },
       ],
+      files: overrides?.files ?? [],
       raw: { createResponse: null, stepResponse: null, dataResponse: null },
     };
 
@@ -137,6 +140,52 @@ describe("POST /api/executions/:id/naat-check — recheck manual", () => {
     expect(documentChecks).toContainEqual(
       expect.objectContaining({ category: "naatCheckRecheck", result: "RISK_MEDIUM" }),
     );
+  });
+
+  it("cuando mediaAssets está vacío (caso real de una ejecución API_BY_STEPS), descarga las imágenes remotas de files[] autenticando con el token del ambiente", async () => {
+    const executionId = await createFixtureExecution({
+      mediaAssets: [],
+      files: [
+        { fileName: "image_id_front.png", fileUrl: "https://fad.test.invalid/validation/getValidationMedia/v1/image_id_front.png" },
+        { fileName: "image_id_back.png", fileUrl: "https://fad.test.invalid/validation/getValidationMedia/v1/image_id_back.png" },
+      ],
+    });
+    setCachedToken(environmentId, "fad-access-token", "bearer", 43199);
+
+    const imageResponse = () => new Response(new Uint8Array([1, 2, 3, 4]), { status: 200, headers: { "content-type": "image/png" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(imageResponse())
+      .mockResolvedValueOnce(imageResponse())
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "tok", token_type: "bearer", expires_in: 43199 }))
+      .mockResolvedValueOnce(
+        jsonResponse(200, { success: true, error: null, code: 200, data: { risk: "LOW", key: null, result: true } }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await request(app).post(`/api/executions/${executionId}/naat-check`).set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    const [frontUrl, frontInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(frontUrl).toBe("https://fad.test.invalid/validation/getValidationMedia/v1/image_id_front.png");
+    expect((frontInit.headers as Record<string, string>).Authorization).toBe("Bearer fad-access-token");
+
+    const [, composeInit] = fetchMock.mock.calls[3] as [string, RequestInit];
+    const sentBody = JSON.parse(composeInit.body as string);
+    expect(sentBody.files).toHaveLength(2);
+    expect(sentBody.files.map((f: { name: string }) => f.name)).toEqual(["image_id_front.png", "image_id_back.png"]);
+  });
+
+  it("si files[] apunta a un host distinto al del ambiente, no descarga esa imagen (protección SSRF) y falla por falta de imágenes", async () => {
+    const executionId = await createFixtureExecution({
+      mediaAssets: [],
+      files: [{ fileName: "image_id_front.png", fileUrl: "https://otro-host.invalid/image_id_front.png" }],
+    });
+    setCachedToken(environmentId, "fad-access-token", "bearer", 43199);
+
+    const res = await request(app).post(`/api/executions/${executionId}/naat-check`).set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain("no tiene imágenes");
   });
 
   it("rechaza cuando NAAT-CHECK no está habilitado para el ambiente", async () => {

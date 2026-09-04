@@ -2,17 +2,82 @@ import type { NaatCheckRecheckResultDto, NormalizedValidationDetail } from "@fad
 import { prisma } from "../../lib/prisma";
 import { fromJsonField, toJsonField } from "../../lib/json-field";
 import { AppError } from "../../lib/errors";
+import { logger } from "../../lib/logger";
 import { logAudit, type AuditContext } from "../audit/audit.service";
 import type { ClientScope } from "../clients/client-scope";
 import { getExecutionOrThrow, recomputeExecutionDetail } from "../executions/executions.service";
+import { fadApiAdapter } from "../fad-adapter/fad-api-adapter";
 import { decryptNaatCheckCredentials, getNaatCheckConfig } from "./naat-check-config.service";
 import { requestNaatCheckRecheck, type NaatCheckFile } from "./naat-check-client";
 
-/** Extrae la imagen frontal/posterior del documento (paso `captureId`, ya normalizadas en
- * `mediaAssets`) para enviarlas a NAAT-CHECK — nunca vuelve a tocar `responsePayload` crudo:
- * reutiliza exactamente lo que el reporte ya muestra en la galería de imágenes. */
-function buildNaatCheckFiles(detail: NormalizedValidationDetail): NaatCheckFile[] {
-  return detail.mediaAssets
+type ExecutionWithEnvironment = Awaited<ReturnType<typeof getExecutionOrThrow>>;
+
+/** Descarga (autenticado, igual que `media-proxy.routes.ts`) las imágenes remotas del documento
+ * capturado en un flujo API_BY_STEPS real — confirmado con una respuesta real: en ese modelo
+ * `mediaAssets` siempre queda vacío porque las imágenes llegan como URL remota en
+ * `files[].fileUrl` (`getValidationData`), nunca embebidas en base64. Nunca acepta una URL fuera
+ * del host del ambiente (misma protección SSRF que el proxy de medios); una ejecución demo (URLs
+ * ficticias) o cualquier archivo que falle la descarga simplemente se omite, sin fabricar datos. */
+async function downloadRemoteDocumentFiles(
+  detail: NormalizedValidationDetail,
+  execution: ExecutionWithEnvironment,
+): Promise<NaatCheckFile[]> {
+  if (execution.isDemo || detail.files.length === 0) return [];
+
+  let environmentHost: string;
+  try {
+    environmentHost = new URL(execution.environment.baseUrl).host;
+  } catch {
+    return [];
+  }
+
+  let accessToken: string;
+  try {
+    accessToken = await fadApiAdapter.getAccessToken(execution.environment);
+  } catch (error) {
+    logger.warn("No fue posible obtener un access_token para descargar imágenes para NAAT-CHECK", {
+      executionId: execution.id,
+      error: error instanceof Error ? error.message : error,
+    });
+    return [];
+  }
+
+  const files: NaatCheckFile[] = [];
+  for (const file of detail.files) {
+    let target: URL;
+    try {
+      target = new URL(file.fileUrl);
+    } catch {
+      continue;
+    }
+    if (target.host !== environmentHost) continue;
+
+    try {
+      const response = await fetch(target.toString(), { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!response.ok) continue;
+      const contentType = response.headers.get("content-type") ?? "image/jpeg";
+      const buffer = Buffer.from(await response.arrayBuffer());
+      files.push({ file: buffer.toString("base64"), type: contentType, name: file.fileName });
+    } catch (error) {
+      logger.warn("No fue posible descargar un archivo para enviarlo a NAAT-CHECK", {
+        executionId: execution.id,
+        fileName: file.fileName,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  }
+  return files;
+}
+
+/** Extrae las imágenes del documento (paso `captureId`) a enviar a NAAT-CHECK: primero intenta
+ * `mediaAssets` (contenido embebido en base64), y si no hay ninguna — el caso real para
+ * ejecuciones API_BY_STEPS — descarga las imágenes remotas de `files[]` (ver
+ * `downloadRemoteDocumentFiles`). Nunca vuelve a tocar `responsePayload` crudo directamente. */
+async function buildNaatCheckFiles(
+  detail: NormalizedValidationDetail,
+  execution: ExecutionWithEnvironment,
+): Promise<NaatCheckFile[]> {
+  const mediaAssetFiles = detail.mediaAssets
     .filter((asset) => asset.stepKey === "captureId")
     .map((asset) => {
       const [, mimeAndData] = asset.dataUrl.split(":", 2);
@@ -20,6 +85,9 @@ function buildNaatCheckFiles(detail: NormalizedValidationDetail): NaatCheckFile[
       return { file: base64 ?? "", type: mimeType || asset.mimeType, name: asset.label };
     })
     .filter((file) => file.file.length > 0);
+
+  if (mediaAssetFiles.length > 0) return mediaAssetFiles;
+  return downloadRemoteDocumentFiles(detail, execution);
 }
 
 /**
@@ -57,7 +125,7 @@ export async function triggerNaatCheckRecheck(
   if (!detail) {
     throw AppError.badRequest("Esta ejecución todavía no tiene un detalle normalizado disponible.");
   }
-  const files = buildNaatCheckFiles(detail);
+  const files = await buildNaatCheckFiles(detail, execution);
 
   await logAudit("NAAT_CHECK_RECHECK_REQUESTED", "ValidationExecution", executionId, auditContext, {
     fileCount: files.length,
