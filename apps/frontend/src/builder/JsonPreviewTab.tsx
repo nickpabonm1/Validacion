@@ -24,7 +24,7 @@ export function JsonPreviewTab({ config, onApply }: JsonPreviewTabProps) {
   function handleValidate() {
     const parsed = ValidationRequestConfigSchema.safeParse(config);
     if (parsed.success) {
-      setValidation({ valid: true, message: "El contrato es válido según el esquema conocido de FAD." });
+      setValidation({ valid: true, message: "El contrato es válido según el esquema conocido del proveedor de biometría." });
     } else {
       setValidation({
         valid: false,

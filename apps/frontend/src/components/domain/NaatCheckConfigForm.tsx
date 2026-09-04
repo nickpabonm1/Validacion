@@ -83,7 +83,7 @@ export function NaatCheckConfigForm({ environmentId }: { environmentId: string |
       <Card>
         <CardContent className="grid gap-4 p-5 md:grid-cols-2">
           <p className="text-xs text-muted-foreground md:col-span-2">
-            NAAT-CHECK (NAAT.TECH) es un servicio independiente de FAD, con su propio usuario y contraseña — nunca comparte
+            NAAT-CHECK (NAAT.TECH) es un servicio independiente del proveedor de biometría, con su propio usuario y contraseña — nunca comparte
             credenciales con la conexión API de este ambiente. El recheck disparado desde aquí siempre es una consulta real
             y síncrona: nunca se fabrica un resultado.
           </p>

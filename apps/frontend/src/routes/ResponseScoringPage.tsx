@@ -310,7 +310,7 @@ export function ResponseScoringPage() {
                 label="Activar rechazo automático"
                 checked={rejectionEnabled}
                 onChange={setRejectionEnabled}
-                hint="Cuando está activo, cada vez que se consulta el estado de una validación el sistema calcula el porcentaje de concordancia documental de la Validación de ID y, si queda por debajo del umbral, marca el proceso como Rechazado (por no concordancia documental) — sin importar el resultado que haya devuelto FAD."
+                hint="Cuando está activo, cada vez que se consulta el estado de una validación el sistema calcula el porcentaje de concordancia documental de la Validación de ID y, si queda por debajo del umbral, marca el proceso como Rechazado (por no concordancia documental) — sin importar el resultado que haya devuelto el proveedor de biometría."
               />
               {rejectionEnabled ? (
                 <Field

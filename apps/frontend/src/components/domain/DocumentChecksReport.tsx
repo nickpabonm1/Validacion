@@ -87,7 +87,7 @@ function ChecksTable({ items }: { items: NormalizedDocumentCheck[] }) {
  * en el reporte fijo (`DocumentChecksReport`) como en un campo de una vista de respuesta
  * personalizada (`RenderedFieldValue`, `renderType: "DOCUMENT_CHECKS"`).
  */
-export function DocumentChecksGroups({ checks }: { checks: NormalizedDocumentCheck[] }) {
+export function DocumentChecksGroups({ checks = [] }: { checks?: NormalizedDocumentCheck[] }) {
   if (checks.length === 0) return <p className="text-xs text-muted-foreground">Sin datos de validación de documento.</p>;
 
   const byCategory = new Map<string, NormalizedDocumentCheck[]>();
@@ -143,7 +143,7 @@ export function DocumentChecksGroups({ checks }: { checks: NormalizedDocumentChe
  * Reporte de "Validación de ID" del paso `captureId` (datos cruzados, autenticidad, calidad de
  * imagen, MRZ, fechas) — replica las mismas secciones que ya muestra el Portal FAD.
  */
-export function DocumentChecksReport({ checks }: { checks: NormalizedDocumentCheck[] }) {
+export function DocumentChecksReport({ checks = [] }: { checks?: NormalizedDocumentCheck[] }) {
   if (checks.length === 0) return null;
 
   return (

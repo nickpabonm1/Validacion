@@ -155,7 +155,7 @@ export function EnvironmentsPage() {
     <div>
       <PageHeader
         title="Configuración > Conexiones API"
-        description="Ambientes y credenciales de conexión con FAD."
+        description="Ambientes y credenciales de conexión con el proveedor de biometría."
         actions={
           activeModel === "WEB_SDK" ? null : (
             <>
@@ -225,7 +225,7 @@ export function EnvironmentsPage() {
                   <span>
                     <span className="block font-medium">API REST (by-steps)</span>
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      FAD aloja el proceso completo. Esta consola lo configura, lanza y monitorea paso a paso.
+                      El proveedor de biometría aloja el proceso completo. Esta consola lo configura, lanza y monitorea paso a paso.
                     </span>
                   </span>
                 </button>
@@ -507,7 +507,7 @@ export function EnvironmentsPage() {
                     onChange={(v) => setValue("webhookPassword", v)}
                     onClear={selected ? () => clearCredential.mutate({ id: selected.id, field: "webhookPassword" }) : undefined}
                   />
-                  <Field label="URL pública del webhook" htmlFor="webhookUrl" hint="Informativa: la URL real que FAD debe invocar es /api/webhooks/fad en su servidor.">
+                  <Field label="URL pública del webhook" htmlFor="webhookUrl" hint="Informativa: la URL real que el proveedor de biometría debe invocar es /api/webhooks/fad en su servidor.">
                     <Input id="webhookUrl" {...register("webhookUrl")} />
                   </Field>
                   <InlineSwitchField

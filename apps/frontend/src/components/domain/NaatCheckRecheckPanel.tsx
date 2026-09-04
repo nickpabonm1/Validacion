@@ -60,7 +60,7 @@ export function NaatCheckRecheckPanel({ executionId, result }: { executionId: st
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 Consultado el {new Date(result.requestedAt).toLocaleString()} — fuera del flujo principal, no reemplaza el
-                resultado de FAD.
+                resultado del proveedor de biometría.
               </p>
             </div>
           </div>

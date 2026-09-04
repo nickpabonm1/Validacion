@@ -409,7 +409,7 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
             </Select>
           </Field>
           <InlineSwitchField
-            label="Usar middleware de FAD (recomendado)"
+            label="Usar middleware del proveedor de biometría (recomendado)"
             checked={values.facetecUseMiddleware}
             onChange={(v) => setValue("facetecUseMiddleware", v)}
           />

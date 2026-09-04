@@ -30,7 +30,7 @@ export function VideoagreementEditor({ step, onChange }: StepEditorProps) {
     <div className="space-y-4">
       <Field
         label="Texto del acuerdo (legend)"
-        hint="El cliente lo lee en voz alta durante la grabación. Obligatorio: FAD rechaza el paso sin este texto."
+        hint="El cliente lo lee en voz alta durante la grabación. Obligatorio: el proveedor de biometría rechaza el paso sin este texto."
       >
         <Textarea
           rows={4}

@@ -187,7 +187,7 @@ export function ExecutionDetailPage() {
           {execution.normalized ? (
             <ReportView detail={execution.normalized} executionId={execution.id} />
           ) : (
-            <EmptyState title="Todavía no hay datos de resultado" description="Usa «Consultar estado» para traer la información desde FAD." />
+            <EmptyState title="Todavía no hay datos de resultado" description="Usa «Consultar estado» para traer la información desde el proveedor de biometría." />
           )}
         </TabsContent>
 

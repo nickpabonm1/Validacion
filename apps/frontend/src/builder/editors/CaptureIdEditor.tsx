@@ -71,7 +71,7 @@ export function CaptureIdEditor({ step, onChange }: StepEditorProps) {
         label="Habilitar NAAT-CHECK"
         checked={naatCheckEnabled}
         onChange={setNaatCheckEnabled}
-        hint="Le pide a FAD que ejecute NAAT-CHECK (verificación de riesgo del documento) como parte de esta misma validación. El resultado aparece en el reporte, en la tarjeta «Validación con gobierno / NAAT-CHECK»."
+        hint="Le pide al proveedor de biometría que ejecute NAAT-CHECK (verificación de riesgo del documento) como parte de esta misma validación. El resultado aparece en el reporte, en la tarjeta «Validación con gobierno / NAAT-CHECK»."
       />
     </div>
   );

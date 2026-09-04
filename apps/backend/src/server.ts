@@ -5,5 +5,5 @@ import { logger } from "./lib/logger";
 const app = createApp();
 
 app.listen(env.port, () => {
-  logger.info(`FAD Console backend escuchando en el puerto ${env.port} (${env.nodeEnv})`);
+  logger.info(`Biometric Console backend escuchando en el puerto ${env.port} (${env.nodeEnv})`);
 });

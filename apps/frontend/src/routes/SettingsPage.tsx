@@ -26,7 +26,7 @@ export function SettingsPage() {
     <div>
       <PageHeader
         title="Configuración"
-        description="Parámetros generales del sistema (no relacionados a credenciales de FAD)."
+        description="Parámetros generales del sistema (no relacionados a credenciales del proveedor de biometría)."
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>

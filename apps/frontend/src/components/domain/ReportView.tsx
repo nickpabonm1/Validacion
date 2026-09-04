@@ -59,7 +59,7 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
     return (
       <EmptyState
         title="Todavía no hay datos de resultado"
-        description="Esta información se completa cuando FAD entrega el detalle de la validación. Usa «Consultar estado» para actualizar."
+        description="Esta información se completa cuando el proveedor de biometría entrega el detalle de la validación. Usa «Consultar estado» para actualizar."
       />
     );
   }
@@ -73,7 +73,7 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
             <span className="font-medium">Rechazado automáticamente por no concordancia documental.</span> La Validación
             de ID obtuvo {detail.documentCheckRejection.percentage}% de concordancia, por debajo del umbral mínimo
             configurado ({detail.documentCheckRejection.threshold}%). Este rechazo es una decisión de esta consola, no
-            necesariamente el resultado que FAD reportó — ajustable en «Configuración de la respuesta».
+            necesariamente el resultado que el proveedor de biometría reportó — ajustable en «Configuración de la respuesta».
           </p>
         </div>
       ) : null}

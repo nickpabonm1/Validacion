@@ -248,7 +248,7 @@ export async function createExecution(params: {
   const { data: createResponse } = await adapter.createValidation(environment, requestBody);
 
   if (!createResponse.success || !createResponse.data) {
-    throw AppError.upstream(createResponse.error ?? "FAD rechazó la creación de la validación", {
+    throw AppError.upstream(createResponse.error ?? "El proveedor de biometría rechazó la creación de la validación", {
       code: createResponse.code,
     });
   }

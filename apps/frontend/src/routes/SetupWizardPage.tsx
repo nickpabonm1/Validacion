@@ -161,7 +161,7 @@ export function SetupWizardPage() {
               onSubmit={envForm.handleSubmit((values) => createEnvMutation.mutate(values))}
             >
               <p className="text-sm text-muted-foreground">
-                Configura una conexión con FAD (opcional — puedes omitir este paso y configurarla luego en
+                Configura una conexión con el proveedor de biometría (opcional — puedes omitir este paso y configurarla luego en
                 Configuración &gt; Conexiones API).
               </p>
               <div className="space-y-1.5">
@@ -204,7 +204,7 @@ export function SetupWizardPage() {
           {step === 2 ? (
             <div className="space-y-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Prueba la autenticación contra FAD con las credenciales que acabas de guardar.
+                Prueba la autenticación contra el proveedor de biometría con las credenciales que acabas de guardar.
               </p>
               <Button
                 onClick={() => environment && testMutation.mutate(environment.id)}

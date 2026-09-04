@@ -19,7 +19,7 @@ export function WebhooksPage() {
 
   return (
     <div>
-      <PageHeader title="Webhooks" description="Eventos recibidos desde FAD, procesados de forma idempotente." />
+      <PageHeader title="Webhooks" description="Eventos recibidos desde el proveedor de biometría, procesados de forma idempotente." />
 
       {isLoading ? (
         <Skeleton className="h-64" />
