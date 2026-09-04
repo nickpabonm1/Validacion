@@ -194,29 +194,97 @@ export function DatabaseConfigPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Cómo aplicar un cambio de motor</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Guardar esta pantalla NO cambia la base de datos activa — Prisma fija el motor al generar el cliente.
-                Para aplicar un cambio real a PostgreSQL:
-              </p>
-              <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-                <li>
-                  Actualiza <code>DATABASE_URL</code> en el entorno del servidor con la cadena de conexión real.
-                </li>
-                <li>
-                  Genera el esquema de Postgres una vez: <code>npm run db:postgresql:build</code>.
-                </li>
-                <li>
-                  Aplica las migraciones: <code>npx prisma migrate deploy --schema prisma/postgresql/schema.prisma</code>.
-                </li>
-                <li>Reinicia el servidor backend.</li>
-              </ol>
-            </CardContent>
-          </Card>
+          {engine === "SQLITE" ? null : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Cómo aplicar un cambio de motor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">
+                  Guardar esta pantalla NO cambia la base de datos activa — Prisma fija el motor al generar el
+                  cliente.{" "}
+                  {engine === "POSTGRESQL"
+                    ? "Para aplicar un cambio real a PostgreSQL:"
+                    : "Para que este motor deje de ser solo referencia y la conexión se vuelva real:"}
+                </p>
+                {engine === "POSTGRESQL" ? (
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+                    <li>
+                      Actualiza <code>DATABASE_URL</code> en el entorno del servidor con la cadena de conexión real.
+                    </li>
+                    <li>
+                      Genera el esquema de Postgres una vez: <code>npm run db:postgresql:build</code>.
+                    </li>
+                    <li>
+                      Aplica las migraciones: <code>npx prisma migrate deploy --schema prisma/postgresql/schema.prisma</code>.
+                    </li>
+                    <li>Reinicia el servidor backend.</li>
+                  </ol>
+                ) : engine === "MONGODB" ? (
+                  <>
+                    <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+                      <li>
+                        Diseña el modelo de datos como colecciones/documentos equivalentes a las tablas actuales de{" "}
+                        <code>prisma/schema.prisma</code> — Mongo no tiene filas ni relaciones de la misma forma, así
+                        que no es un cambio de cadena de conexión, es un modelo de datos nuevo.
+                      </li>
+                      <li>
+                        Implementa esa capa de acceso a datos: cada llamado a{" "}
+                        <code>prisma.&lt;modelo&gt;.findX/create/update/delete</code> en{" "}
+                        <code>apps/backend/src/modules/**</code> debe reemplazarse por su equivalente contra Mongo,
+                        ya sea con el driver oficial <code>mongodb</code> (ya es dependencia del backend — ver{" "}
+                        <code>client-database-connection.service.ts</code>, donde hoy solo se usa para probar
+                        conexión) o adoptando el conector <code>mongodb</code> de Prisma (con limitaciones: IDs como{" "}
+                        <code>ObjectId</code>, sin claves foráneas reales, sin <code>migrate dev</code> con SQL).
+                      </li>
+                      <li>
+                        Una vez esa capa exista, los datos guardados arriba (host, puerto, usuario, contraseña, base)
+                        pasan a ser la conexión real que use el backend, y &ldquo;Probar conexión&rdquo; empezará a
+                        intentar una conexión genuina en vez de solo documentarla.
+                      </li>
+                      <li>
+                        Actualiza <code>DATABASE_URL</code> (o la variable que defina esa nueva capa) en el entorno
+                        del servidor y reinícialo.
+                      </li>
+                    </ol>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      En resumen: esto es un desarrollo a encargar a tu equipo técnico, no un cambio de
+                      configuración — el ahorro es que, una vez construida esa capa, esta pantalla ya tiene el
+                      formulario y la prueba de conexión listos para usarla.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+                      <li>
+                        Modela el dominio como nodos y relaciones (grafo) en vez de tablas — no existe un ORM tipo
+                        Prisma para Neo4j en este proyecto, así que tampoco aquí es un simple cambio de conexión.
+                      </li>
+                      <li>
+                        Implementa esa capa de acceso a datos reemplazando cada llamado a{" "}
+                        <code>prisma.&lt;modelo&gt;.findX/create/update/delete</code> en{" "}
+                        <code>apps/backend/src/modules/**</code> por consultas Cypher usando el driver oficial{" "}
+                        <code>neo4j-driver</code> (ya es dependencia del backend — ver{" "}
+                        <code>client-database-connection.service.ts</code>, donde hoy solo se usa para probar
+                        conexión).
+                      </li>
+                      <li>
+                        Una vez esa capa exista, la URI guardada arriba (<code>bolt://host:puerto</code>) pasa a ser
+                        la conexión real que use el backend, y &ldquo;Probar conexión&rdquo; empezará a intentar una
+                        conexión genuina en vez de solo documentarla.
+                      </li>
+                      <li>Actualiza la variable de entorno correspondiente en el servidor y reinícialo.</li>
+                    </ol>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      En resumen: esto es un desarrollo a encargar a tu equipo técnico, no un cambio de
+                      configuración — el ahorro es que, una vez construida esa capa, esta pantalla ya tiene el
+                      formulario y la prueba de conexión listos para usarla.
+                    </p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex justify-end">
             <Button onClick={() => void handleSave()} disabled={updateConfig.isPending}>
