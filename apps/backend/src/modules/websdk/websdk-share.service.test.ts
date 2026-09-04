@@ -110,20 +110,31 @@ describe("websdk-share.service: enlaces de captura compartibles", () => {
     expect(link.createdById).toBeNull();
 
     const before = await getExternalValidationStatus(link.id, environmentId);
-    expect(before).toMatchObject({ status: "PENDING", executionId: null, normalizedStatus: null, result: null });
+    expect(before).toMatchObject({ status: "PENDING", executionId: null, normalizedStatus: null, result: null, detail: null });
 
+    // Igual que en el flujo real (ver `completeWebSdkExecution` en websdk-flow.service.ts):
+    // `normalizedResponse` queda `null` mientras el usuario todavía está capturando, y solo se
+    // puebla de una sola vez cuando la ejecución termina.
     const fakeExecution = await prisma.validationExecution.create({
       data: {
         processName: "Test",
         environmentId,
         requestPayload: "{}",
-        normalizedStatus: "COMPLETED",
-        result: "APPROVED",
+        normalizedStatus: "IN_PROGRESS",
         clientNameMasked: "C***",
         clientEmailMasked: "c***@ejemplo.com",
       },
     });
     await markShareLinkStarted(link.token, fakeExecution.id);
+
+    const midFlight = await getExternalValidationStatus(link.id, environmentId);
+    expect(midFlight).toMatchObject({ status: "STARTED", executionId: fakeExecution.id, detail: null });
+
+    const fakeDetail = { validationId: "demo-id", ocr: { fullName: "Cliente Externo" }, documentChecks: [] };
+    await prisma.validationExecution.update({
+      where: { id: fakeExecution.id },
+      data: { normalizedStatus: "COMPLETED", result: "APPROVED", normalizedResponse: JSON.stringify(fakeDetail) },
+    });
     await markShareLinkCompleted(link.token);
 
     const after = await getExternalValidationStatus(link.id, environmentId);
@@ -132,6 +143,7 @@ describe("websdk-share.service: enlaces de captura compartibles", () => {
       executionId: fakeExecution.id,
       normalizedStatus: "COMPLETED",
       result: "APPROVED",
+      detail: fakeDetail,
     });
   });
 

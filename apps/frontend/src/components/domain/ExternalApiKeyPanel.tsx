@@ -128,7 +128,11 @@ export function ExternalApiKeyPanel({ environment }: { environment: ApiEnvironme
           <p className="text-xs text-muted-foreground">
             La respuesta trae <code>publicUrl</code>: es el enlace que se le entrega al usuario final para que
             complete la captura. Con <code>GET {createUrl}/&#123;id&#125;</code> (misma clave) se consulta el
-            estado mientras tanto.
+            estado mientras tanto (<code>PENDING</code> → <code>STARTED</code> → <code>COMPLETED</code>). Una
+            vez <code>COMPLETED</code>, esa misma respuesta trae el resultado completo en{" "}
+            <code>detail</code> — OCR, validación de documento, alertas, clasificación y comparación facial:
+            la misma información que ve un operador en el reporte de esta consola, sin necesidad de volver a
+            consultar nada más.
           </p>
         </div>
       </CardContent>

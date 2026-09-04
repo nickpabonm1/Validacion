@@ -13,7 +13,11 @@ import { createShareLink, getExternalValidationStatus, toShareLinkDto } from "./
  * Ese usuario completa TODO el flujo por su cuenta en `/v/:token` (welcome → documento → prueba
  * de vida → guardado) — la ejecución nunca requiere que un operador vuelva a intervenir. Se
  * autentica con la clave de API del ambiente (`Authorization: Bearer <clave>`), nunca con la
- * cookie de sesión de la consola — ver `external-api-key.middleware.ts`.
+ * cookie de sesión de la consola — ver `external-api-key.middleware.ts`. `GET /:id` (misma
+ * clave) permite hacer polling del estado y, una vez `COMPLETED`, trae el resultado COMPLETO en
+ * `detail` (OCR, validación de documento, alertas, clasificación, comparación facial — la misma
+ * forma canónica `NormalizedValidationDetail` que ve un operador en el reporte de la consola,
+ * ver `getExternalValidationStatus`), nunca solo un veredicto resumido.
  */
 export const websdkExternalRouter = Router();
 

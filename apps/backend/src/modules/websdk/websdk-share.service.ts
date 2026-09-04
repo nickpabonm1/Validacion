@@ -174,19 +174,25 @@ export async function getExternalValidationStatus(
 
   let normalizedStatus: string | null = null;
   let result: string | null = null;
+  let detail: ExternalWebSdkValidationStatusDto["detail"] = null;
   if (link.executionId) {
     const execution = await prisma.validationExecution.findUnique({
       where: { id: link.executionId },
-      select: { normalizedStatus: true, result: true },
+      select: { normalizedStatus: true, result: true, normalizedResponse: true },
     });
     normalizedStatus = execution?.normalizedStatus ?? null;
     result = execution?.result ?? null;
+    // `normalizedResponse` solo queda poblado una vez que `completeWebSdkExecution` terminó (ver
+    // websdk-flow.service.ts) — coincide exactamente con `link.status === "COMPLETED"`, nunca se
+    // fabrica un resultado parcial mientras el usuario sigue capturando.
+    detail = fromJsonField(execution?.normalizedResponse, null);
   }
 
   return {
     id: link.id,
     status: link.status as ExternalWebSdkValidationStatusDto["status"],
     executionId: link.executionId,
+    detail,
     normalizedStatus,
     result,
     expiresAt: link.expiresAt.toISOString(),

@@ -129,11 +129,62 @@ describe("websdk-external.routes: API pública para que un sistema externo cree 
       executionId: null,
       normalizedStatus: null,
       result: null,
+      detail: null,
     });
 
     // La ejecución que se crea al final no queda atribuida a ningún operador de la consola.
     const linkRow = await prisma.webSdkShareLink.findUnique({ where: { id: createRes.body.validation.id } });
     expect(linkRow?.createdById).toBeNull();
+  });
+
+  it("una vez completada la captura, GET devuelve el resultado completo (no solo el veredicto)", async () => {
+    const genRes = await request(app)
+      .post(`/api/environments/${webSdkEnvironmentId}/external-api-key`)
+      .set("Cookie", adminCookie)
+      .send({});
+    const rawKey: string = genRes.body.apiKey.rawKey;
+
+    const createRes = await request(app)
+      .post("/api/public/websdk-validations")
+      .set("Authorization", `Bearer ${rawKey}`)
+      .send({ client: { name: "Cliente Completo", mail: "completo@ejemplo.com", phone: "+573000000004" } });
+
+    // Simula lo que hace `completeWebSdkExecution` al terminar la captura real: crea la
+    // ejecución con su detalle normalizado completo (OCR, documentChecks, etc.) y marca el
+    // enlace como COMPLETED.
+    const fakeDetail = {
+      validationId: "demo-full-detail",
+      ocr: { fullName: "Cliente Completo", documentNumber: "0000000000" },
+      documentChecks: [{ category: "authenticity", page: 1, name: "check", description: null, result: "OK", resultDescription: null, sources: null }],
+      naatCheckResult: null,
+    };
+    const execution = await prisma.validationExecution.create({
+      data: {
+        processName: "Test",
+        environmentId: webSdkEnvironmentId,
+        requestPayload: "{}",
+        normalizedStatus: "COMPLETED",
+        result: "APPROVED",
+        normalizedResponse: JSON.stringify(fakeDetail),
+        clientNameMasked: "C***",
+        clientEmailMasked: "c***@ejemplo.com",
+      },
+    });
+    await prisma.webSdkShareLink.update({
+      where: { id: createRes.body.validation.id },
+      data: { status: "COMPLETED", executionId: execution.id },
+    });
+
+    const statusRes = await request(app)
+      .get(`/api/public/websdk-validations/${createRes.body.validation.id}`)
+      .set("Authorization", `Bearer ${rawKey}`);
+    expect(statusRes.status).toBe(200);
+    expect(statusRes.body.validation).toMatchObject({
+      status: "COMPLETED",
+      normalizedStatus: "COMPLETED",
+      result: "APPROVED",
+      detail: fakeDetail,
+    });
   });
 
   it("la clave de un ambiente no puede consultar el estado de una validación de otro ambiente", async () => {

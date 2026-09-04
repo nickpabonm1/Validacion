@@ -1,4 +1,5 @@
 import type { EnvironmentType, UserRole, ConfigurableHttpMethod, IntegrationModel, DocumentCaptureEngine, BiometricEngine, RiskLevel, RegulaCaptureType } from "./enums";
+import type { NormalizedValidationDetail } from "./normalized";
 
 export interface AuthenticatedUserDto {
   id: string;
@@ -247,13 +248,19 @@ export interface WebSdkShareLinkDto {
 /** Estado de una validación creada por un sistema externo (ver `websdk-external.routes.ts`) —
  * lo que ese sistema consulta mientras su usuario completa (o no) la captura en el enlace que
  * recibió. `normalizedStatus`/`result` solo vienen poblados una vez que el enlace generó una
- * ejecución (`executionId` no nulo); antes de eso son `null`, nunca se fabrica un valor. */
+ * ejecución (`executionId` no nulo); antes de eso son `null`, nunca se fabrica un valor. `detail`
+ * es el resultado COMPLETO (OCR, validación de documento, alertas, clasificación, comparación
+ * facial — la misma forma canónica que ve un operador en el reporte de la consola): `null` hasta
+ * que el enlace queda `COMPLETED`, momento en el que se puebla de una sola vez con
+ * `NormalizedValidationDetail` tal cual quedó normalizado — nunca un subconjunto ni un resumen
+ * fabricado. */
 export interface ExternalWebSdkValidationStatusDto {
   id: string;
   status: "PENDING" | "STARTED" | "COMPLETED" | "EXPIRED";
   executionId: string | null;
   normalizedStatus: string | null;
   result: string | null;
+  detail: NormalizedValidationDetail | null;
   expiresAt: string;
   createdAt: string;
 }
