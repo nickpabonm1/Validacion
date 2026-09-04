@@ -25,6 +25,7 @@ import { useToast } from "../components/ui/toast";
 import { parsePostmanCollection, type PostmanImportResult } from "../lib/postman-import";
 import { WebSdkConfigForm } from "../components/domain/WebSdkConfigForm";
 import { NaatCheckConfigForm } from "../components/domain/NaatCheckConfigForm";
+import { ExternalApiKeyPanel } from "../components/domain/ExternalApiKeyPanel";
 import { useClients } from "../features/clients/useClients";
 
 const BLANK: ApiEnvironmentInput = {
@@ -255,6 +256,7 @@ export function EnvironmentsPage() {
             {activeModel === "API_BY_STEPS" ? <TabsTrigger value="webhooks">Webhooks</TabsTrigger> : null}
             {activeModel === "API_BY_STEPS" ? <TabsTrigger value="naat-check">NAAT-CHECK</TabsTrigger> : null}
             {activeModel === "WEB_SDK" ? <TabsTrigger value="websdk">Web SDK</TabsTrigger> : null}
+            {activeModel === "WEB_SDK" ? <TabsTrigger value="external-api">Validación externa</TabsTrigger> : null}
           </TabsList>
 
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -546,6 +548,12 @@ export function EnvironmentsPage() {
           {activeModel === "WEB_SDK" ? (
           <TabsContent value="websdk">
             <WebSdkConfigForm environmentId={selected?.id ?? null} />
+          </TabsContent>
+          ) : null}
+
+          {activeModel === "WEB_SDK" ? (
+          <TabsContent value="external-api">
+            <ExternalApiKeyPanel environment={selected} />
           </TabsContent>
           ) : null}
 

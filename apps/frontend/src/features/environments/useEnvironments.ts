@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ApiEnvironmentDto, NaatCheckConfigDto, NaatCheckTestConnectionResultDto, TestConnectionResultDto, WebSdkConfigDto } from "@fad-console/shared-types";
+import type {
+  ApiEnvironmentDto,
+  ExternalApiKeyGeneratedDto,
+  NaatCheckConfigDto,
+  NaatCheckTestConnectionResultDto,
+  TestConnectionResultDto,
+  WebSdkConfigDto,
+} from "@fad-console/shared-types";
 import type { ApiEnvironmentInput, NaatCheckConfigInput, WebSdkConfigInput } from "@fad-console/validation-schemas";
 import { api } from "../../lib/api-client";
 
@@ -48,6 +55,24 @@ export function useTestConnection() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.post<TestConnectionResultDto>(`/environments/${id}/test-connection`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["environments"] }),
+  });
+}
+
+/** Genera (o rota) la clave de API externa del ambiente. La clave real solo viene en ESTA
+ * respuesta — el operador debe copiarla de inmediato, no se puede volver a consultar. */
+export function useGenerateExternalApiKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<{ apiKey: ExternalApiKeyGeneratedDto }>(`/environments/${id}/external-api-key`).then((r) => r.apiKey),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["environments"] }),
+  });
+}
+
+export function useRevokeExternalApiKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<{ environment: ApiEnvironmentDto }>(`/environments/${id}/external-api-key`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["environments"] }),
   });
 }

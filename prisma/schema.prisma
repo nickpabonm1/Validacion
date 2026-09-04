@@ -149,6 +149,17 @@ model ApiEnvironment {
   webhookUrl    String?
   webhookActive Boolean @default(false)
 
+  /// Clave de API para que un SISTEMA EXTERNO (no un operador de esta consola, no el cliente
+  /// final) cree por su cuenta una nueva validación Web SDK y reciba el enlace de captura — ver
+  /// `external-api-key.service.ts`. Solo se guarda el hash SHA-256 (mismo patrón que
+  /// `PasswordResetToken.tokenHash`): la clave real solo se muestra UNA vez, al generarla/rotarla,
+  /// nunca se puede recuperar después. `externalApiKeyPrefix` (primeros caracteres, no secretos)
+  /// es solo para que el operador identifique la clave activa en la interfaz.
+  externalApiKeyHash        String?   @unique
+  externalApiKeyPrefix      String?
+  externalApiKeyCreatedAt   DateTime?
+  externalApiKeyLastUsedAt  DateTime?
+
   /// ConnectionStatus: NOT_CONFIGURED | UNKNOWN | OK | FAILED
   connectionStatus String    @default("NOT_CONFIGURED")
   lastTestedAt     DateTime?
@@ -512,8 +523,11 @@ model WebSdkShareLink {
   executionId String?              @unique
   execution   ValidationExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
 
-  createdById String
-  createdBy   User   @relation("ShareLinkCreatedBy", fields: [createdById], references: [id])
+  /// `null` = creado por un sistema externo vía la clave de API del ambiente (ver
+  /// `externalApiKeyHash` en ApiEnvironment / `websdk-external.routes.ts`), no por un operador con
+  /// sesión en esta consola.
+  createdById String?
+  createdBy   User?   @relation("ShareLinkCreatedBy", fields: [createdById], references: [id])
 
   expiresAt DateTime
   usedAt    DateTime?

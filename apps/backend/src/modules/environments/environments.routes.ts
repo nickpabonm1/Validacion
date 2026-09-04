@@ -16,6 +16,7 @@ import {
   toEnvironmentDto,
   updateEnvironment,
 } from "./environments.service";
+import { generateExternalApiKey, revokeExternalApiKey } from "./external-api-key.service";
 
 export const environmentsRouter = Router();
 
@@ -97,6 +98,33 @@ environmentsRouter.delete("/:id/credentials/:field", requireRole("ADMIN"), async
     clearCachedToken(environment.id);
     await logAudit("DELETE", "ApiEnvironmentCredential", environment.id, auditContextFrom(req), { field });
     res.json({ environment: toEnvironmentDto(environment) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Genera (o rota) la clave de API externa de este ambiente — ver external-api-key.service.ts.
+ * La clave real solo viaja en ESTA respuesta (`rawKey`): si el operador la pierde, hay que
+ * volver a llamar este endpoint para rotarla, nunca se puede recuperar. */
+environmentsRouter.post("/:id/external-api-key", requireRole("ADMIN"), async (req, res, next) => {
+  try {
+    const scope = await buildClientScope(req.user!);
+    const environment = await getEnvironmentOrThrow(req.params.id as string, scope);
+    const apiKey = await generateExternalApiKey(environment);
+    await logAudit("UPDATE", "ApiEnvironmentExternalApiKey", environment.id, auditContextFrom(req), { action: "generated" });
+    res.status(201).json({ apiKey });
+  } catch (error) {
+    next(error);
+  }
+});
+
+environmentsRouter.delete("/:id/external-api-key", requireRole("ADMIN"), async (req, res, next) => {
+  try {
+    const scope = await buildClientScope(req.user!);
+    const environment = await getEnvironmentOrThrow(req.params.id as string, scope);
+    const updated = await revokeExternalApiKey(environment.id);
+    await logAudit("UPDATE", "ApiEnvironmentExternalApiKey", environment.id, auditContextFrom(req), { action: "revoked" });
+    res.json({ environment: toEnvironmentDto(updated) });
   } catch (error) {
     next(error);
   }

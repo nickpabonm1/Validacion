@@ -24,3 +24,19 @@ export const WebSdkShareSendInputSchema = z.object({
   destination: z.string().min(1).max(320),
 });
 export type WebSdkShareSendInput = z.infer<typeof WebSdkShareSendInputSchema>;
+
+/** Payload que un SISTEMA EXTERNO envía (autenticado con la clave de API del ambiente, ver
+ * `websdk-external.routes.ts`) para crear una validación Web SDK por su cuenta. Mismo shape que
+ * `WebSdkShareLinkInputSchema` pero sin `environmentId`: el ambiente lo determina la clave de
+ * API usada, nunca el cuerpo de la petición (evita que una clave de un ambiente cree enlaces en
+ * otro). */
+export const WebSdkExternalValidationInputSchema = z.object({
+  templateId: z.string().min(1).optional().nullable(),
+  processName: z.string().min(1).max(200).optional(),
+  client: z.object({
+    name: z.string().min(1).max(200),
+    mail: z.string().email(),
+    phone: z.string().min(1).max(40),
+  }),
+});
+export type WebSdkExternalValidationInput = z.infer<typeof WebSdkExternalValidationInputSchema>;

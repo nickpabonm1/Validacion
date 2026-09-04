@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../lib/errors";
 import { credentialEncryptionService } from "../credentials/credential-encryption.service";
 import { assertWithinScope, clientWhereClause, type ClientScope } from "../clients/client-scope";
+import { toExternalApiKeyStatusDto } from "./external-api-key.service";
 
 type EnvironmentRecord = Awaited<ReturnType<typeof prisma.apiEnvironment.findFirstOrThrow>>;
 
@@ -39,6 +40,7 @@ export function toEnvironmentDto(env: EnvironmentRecord): ApiEnvironmentDto {
     lastTestedAt: env.lastTestedAt ? env.lastTestedAt.toISOString() : null,
     integrationModel: env.integrationModel as IntegrationModel,
     clientId: env.clientId,
+    externalApiKey: toExternalApiKeyStatusDto(env),
     createdAt: env.createdAt.toISOString(),
     updatedAt: env.updatedAt.toISOString(),
   };

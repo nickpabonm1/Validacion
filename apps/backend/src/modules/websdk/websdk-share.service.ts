@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { WebSdkShareLinkDto, WebSdkPublicShareInfoDto } from "@fad-console/shared-types";
+import type { WebSdkShareLinkDto, WebSdkPublicShareInfoDto, ExternalWebSdkValidationStatusDto } from "@fad-console/shared-types";
 import type { WebSdkShareLinkInput } from "@fad-console/validation-schemas";
 import { prisma } from "../../lib/prisma";
 import { fromJsonField, toJsonField } from "../../lib/json-field";
@@ -47,8 +47,10 @@ export function toShareLinkDto(link: ShareLinkRecord, environmentName: string, i
 
 /** Crea un enlace de captura Web SDK compartible. No arranca la ejecución todavía — eso ocurre
  * recién cuando el cliente final abre `/v/:token` (ver `startShareLinkExecution`), para que el
- * `sdkToken`/sesión del SDK esté fresca en el dispositivo que realmente hace la captura. */
-export async function createShareLink(input: WebSdkShareLinkInput, createdById: string) {
+ * `sdkToken`/sesión del SDK esté fresca en el dispositivo que realmente hace la captura.
+ * `createdById` es `null` cuando lo crea un sistema externo con la clave de API del ambiente
+ * (ver `websdk-external.routes.ts`), no un operador con sesión en esta consola. */
+export async function createShareLink(input: WebSdkShareLinkInput, createdById: string | null) {
   const environment = await getEnvironmentOrThrow(input.environmentId);
   if (environment.integrationModel !== "WEB_SDK") {
     throw AppError.badRequest("Solo los ambientes con modelo de integración Web SDK admiten enlaces compartidos.");
@@ -155,4 +157,39 @@ export async function resolveExecutionId(token: string): Promise<string> {
 
 export async function markShareLinkCompleted(token: string): Promise<void> {
   await prisma.webSdkShareLink.update({ where: { token }, data: { status: "COMPLETED" } });
+}
+
+/** Estado de una validación creada por un sistema externo, para que ese sistema haga polling
+ * mientras su usuario completa (o no) la captura — ver `websdk-external.routes.ts`. Confirma que
+ * el enlace pertenece al `environmentId` de la clave de API usada (nunca expone el estado de un
+ * enlace de otro ambiente, aunque se conozca su id). */
+export async function getExternalValidationStatus(
+  shareLinkId: string,
+  environmentId: string,
+): Promise<ExternalWebSdkValidationStatusDto> {
+  const link = await prisma.webSdkShareLink.findUnique({ where: { id: shareLinkId } });
+  if (!link || link.environmentId !== environmentId) {
+    throw AppError.notFound("Validación no encontrada.");
+  }
+
+  let normalizedStatus: string | null = null;
+  let result: string | null = null;
+  if (link.executionId) {
+    const execution = await prisma.validationExecution.findUnique({
+      where: { id: link.executionId },
+      select: { normalizedStatus: true, result: true },
+    });
+    normalizedStatus = execution?.normalizedStatus ?? null;
+    result = execution?.result ?? null;
+  }
+
+  return {
+    id: link.id,
+    status: link.status as ExternalWebSdkValidationStatusDto["status"],
+    executionId: link.executionId,
+    normalizedStatus,
+    result,
+    expiresAt: link.expiresAt.toISOString(),
+    createdAt: link.createdAt.toISOString(),
+  };
 }

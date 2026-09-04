@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../../lib/prisma";
 import {
   createShareLink,
+  getExternalValidationStatus,
   getPublicShareInfo,
   markShareLinkCompleted,
   markShareLinkStarted,
@@ -98,6 +99,53 @@ describe("websdk-share.service: enlaces de captura compartibles", () => {
 
     await expect(getPublicShareInfo(link.token)).rejects.toThrow(/expiró/i);
     await expect(getPublicShareInfo("token-que-no-existe")).rejects.toThrow(/no encontrado/i);
+  });
+
+  it("crea un enlace con createdById null (sistema externo) y getExternalValidationStatus refleja el estado real de la ejecución", async () => {
+    const { environmentId } = await setupEnvironmentAndUser();
+    const { link } = await createShareLink(
+      { environmentId, client: { name: "Cliente Externo", mail: "externo@ejemplo.com", phone: "+573000000000" } },
+      null,
+    );
+    expect(link.createdById).toBeNull();
+
+    const before = await getExternalValidationStatus(link.id, environmentId);
+    expect(before).toMatchObject({ status: "PENDING", executionId: null, normalizedStatus: null, result: null });
+
+    const fakeExecution = await prisma.validationExecution.create({
+      data: {
+        processName: "Test",
+        environmentId,
+        requestPayload: "{}",
+        normalizedStatus: "COMPLETED",
+        result: "APPROVED",
+        clientNameMasked: "C***",
+        clientEmailMasked: "c***@ejemplo.com",
+      },
+    });
+    await markShareLinkStarted(link.token, fakeExecution.id);
+    await markShareLinkCompleted(link.token);
+
+    const after = await getExternalValidationStatus(link.id, environmentId);
+    expect(after).toMatchObject({
+      status: "COMPLETED",
+      executionId: fakeExecution.id,
+      normalizedStatus: "COMPLETED",
+      result: "APPROVED",
+    });
+  });
+
+  it("getExternalValidationStatus rechaza consultar un enlace que pertenece a otro ambiente", async () => {
+    const { environmentId, userId } = await setupEnvironmentAndUser();
+    const { link } = await createShareLink(
+      { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+      userId,
+    );
+    const otherEnvironment = await prisma.apiEnvironment.create({
+      data: { name: "Otro ambiente", environmentType: "UATHA", baseUrl: "https://otro.test.invalid", integrationModel: "WEB_SDK" },
+    });
+
+    await expect(getExternalValidationStatus(link.id, otherEnvironment.id)).rejects.toThrow(/no encontrada/i);
   });
 
   it("rechaza crear un enlace sobre un ambiente que no es Web SDK", async () => {

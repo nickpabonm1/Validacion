@@ -22,6 +22,7 @@ import { websdkConfigRouter } from "./modules/websdk/websdk-config.routes";
 import { websdkFlowRouter } from "./modules/websdk/websdk-flow.routes";
 import { websdkShareRouter } from "./modules/websdk/websdk-share.routes";
 import { websdkSharePublicRouter } from "./modules/websdk/websdk-share-public.routes";
+import { websdkExternalRouter } from "./modules/websdk/websdk-external.routes";
 import { messagingConfigRouter } from "./modules/messaging/messaging-config.routes";
 import { documentCheckScoringRouter } from "./modules/document-check-scoring/document-check-scoring.routes";
 import { databaseConnectionRouter } from "./modules/database-connection/database-connection.routes";
@@ -91,6 +92,10 @@ export function createApp(): express.Express {
   // Público (sin cookie de sesión): el cliente final abre el enlace compartido en su propio
   // celular. El `token` opaco de un solo uso es la única credencial (ver websdk-share.service.ts).
   app.use("/api/public/websdk-share", websdkSharePublicRouter);
+  // Público (sin cookie de sesión): un SISTEMA EXTERNO crea una validación Web SDK por su cuenta,
+  // autenticado con la clave de API del ambiente (ver external-api-key.middleware.ts), nunca con
+  // sesión de operador.
+  app.use("/api/public/websdk-validations", websdkExternalRouter);
   app.use("/api/messaging-config", messagingConfigRouter);
   app.use("/api/document-check-scoring", documentCheckScoringRouter);
   app.use("/api/database-connection", databaseConnectionRouter);

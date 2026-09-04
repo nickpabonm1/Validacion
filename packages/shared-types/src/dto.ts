@@ -47,8 +47,30 @@ export interface ApiEnvironmentDto {
   integrationModel: IntegrationModel;
   /** `null` = ambiente de plataforma (histórico, no pertenece a ningún cliente). */
   clientId: string | null;
+  /** Clave de API para sistemas externos (ver `ExternalApiKeyStatusDto`) — solo aplica a
+   * ambientes con `integrationModel: "WEB_SDK"`. */
+  externalApiKey: ExternalApiKeyStatusDto;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Estado (nunca el valor) de la clave de API que un sistema externo usa para crear
+ * validaciones Web SDK sin pasar por la consola — ver `websdk-external.routes.ts` y
+ * `external-api-key.service.ts`. `prefix` son los primeros caracteres de la clave (no
+ * secretos), solo para que el operador identifique cuál está activa.
+ */
+export interface ExternalApiKeyStatusDto {
+  configured: boolean;
+  prefix: string | null;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+}
+
+/** La clave real solo viaja en la respuesta de generar/rotar — nunca se puede volver a
+ * consultar después (se guarda únicamente su hash). */
+export interface ExternalApiKeyGeneratedDto extends ExternalApiKeyStatusDto {
+  rawKey: string;
 }
 
 /**
@@ -219,6 +241,20 @@ export interface WebSdkShareLinkDto {
   executionId: string | null;
   expiresAt: string;
   usedAt: string | null;
+  createdAt: string;
+}
+
+/** Estado de una validación creada por un sistema externo (ver `websdk-external.routes.ts`) —
+ * lo que ese sistema consulta mientras su usuario completa (o no) la captura en el enlace que
+ * recibió. `normalizedStatus`/`result` solo vienen poblados una vez que el enlace generó una
+ * ejecución (`executionId` no nulo); antes de eso son `null`, nunca se fabrica un valor. */
+export interface ExternalWebSdkValidationStatusDto {
+  id: string;
+  status: "PENDING" | "STARTED" | "COMPLETED" | "EXPIRED";
+  executionId: string | null;
+  normalizedStatus: string | null;
+  result: string | null;
+  expiresAt: string;
   createdAt: string;
 }
 
