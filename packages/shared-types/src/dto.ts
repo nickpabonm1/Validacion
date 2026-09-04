@@ -143,6 +143,47 @@ export interface WebSdkConfigDto {
   updatedAt: string;
 }
 
+/** Colores/tipografías (`fadCustomization`) — misma forma que ya usan los 4 módulos del Web SDK
+ * (Acuant/Regula/CaptureId/Facetec) en `configuration.customization.fadCustomization`. Todos los
+ * campos son opcionales: lo que una plantilla no fije, no se toca. */
+export interface WebSdkTemplateCustomizationDto {
+  colors?: { primary?: string; secondary?: string; tertiary?: string };
+  buttons?: {
+    primary?: { backgroundColor?: string; labelColor?: string };
+    secondary?: { backgroundColor?: string; labelColor?: string };
+  };
+  fonts?: {
+    title?: { fontSize?: string; fontFamily?: string };
+    subtitle?: { fontSize?: string; fontFamily?: string };
+    content?: { fontSize?: string; fontFamily?: string };
+    button?: { fontSize?: string; fontFamily?: string };
+  };
+}
+
+/**
+ * Plantilla reutilizable del modelo Web SDK — equivalente de ValidationTemplate para
+ * API_BY_STEPS, pero con su propia forma (ver el comentario en `prisma/schema.prisma`): solo
+ * cubre lo que puede variar por proceso sin credenciales (textos, tema, umbrales), nunca el
+ * motor de documento ni las credenciales, que siguen siendo del ambiente. Los campos de
+ * mensajes/tema/umbrales son parciales — `null`/ausente = "usa lo que ya tenga el ambiente".
+ */
+export interface WebSdkTemplateDto {
+  id: string;
+  name: string;
+  description: string | null;
+  environmentId: string;
+  active: boolean;
+  onboardingMessages: Partial<WebSdkOnboardingMessagesDto>;
+  customization: WebSdkTemplateCustomizationDto;
+  checkMaxAttempts: number | null;
+  checkAcceptedRisk: RiskLevel | null;
+  faceMatchMinConfidence: number | null;
+  createdById: string | null;
+  updatedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProviderCatalogEntryDto {
   id: string;
   providerKey: string;

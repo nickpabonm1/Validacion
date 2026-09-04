@@ -19,6 +19,7 @@ import { auditRouter } from "./modules/audit/audit.routes";
 import { settingsRouter } from "./modules/settings/settings.routes";
 import { mediaProxyRouter } from "./modules/media-proxy/media-proxy.routes";
 import { websdkConfigRouter } from "./modules/websdk/websdk-config.routes";
+import { websdkTemplateRouter } from "./modules/websdk/websdk-template.routes";
 import { websdkFlowRouter } from "./modules/websdk/websdk-flow.routes";
 import { websdkShareRouter } from "./modules/websdk/websdk-share.routes";
 import { websdkSharePublicRouter } from "./modules/websdk/websdk-share-public.routes";
@@ -74,6 +75,7 @@ export function createApp(): express.Express {
   app.use("/api/users", usersRouter);
   app.use("/api/environments", environmentsRouter);
   app.use("/api/environments/:id/websdk-config", websdkConfigRouter);
+  app.use("/api/websdk-templates", websdkTemplateRouter);
   app.use("/api/environments/:id/naat-check-config", naatCheckConfigRouter);
   app.use("/api/providers", providersRouter);
   app.use("/api/templates", templatesRouter);

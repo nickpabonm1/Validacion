@@ -8,6 +8,7 @@ import { RequireRole } from "./components/layout/RequireRole";
 import { DashboardPage } from "./routes/DashboardPage";
 import { BuilderPage } from "./routes/BuilderPage";
 import { TemplatesPage } from "./routes/TemplatesPage";
+import { WebSdkTemplatesPage } from "./routes/WebSdkTemplatesPage";
 import { NewExecutionPage } from "./routes/NewExecutionPage";
 import { WebSdkCapturePage } from "./routes/WebSdkCapturePage";
 import { WebSdkPublicCapturePage } from "./routes/WebSdkPublicCapturePage";
@@ -58,6 +59,14 @@ export function App() {
           element={
             <RequireRole roles={["ADMIN", "OPERATOR"]}>
               <TemplatesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="websdk-templates"
+          element={
+            <RequireRole roles={["ADMIN", "OPERATOR"]}>
+              <WebSdkTemplatesPage />
             </RequireRole>
           }
         />

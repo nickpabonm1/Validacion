@@ -8,6 +8,7 @@ import { env } from "../../config/env";
 import { maskName } from "../../normalize/mask";
 import { getEnvironmentOrThrow } from "../environments/environments.service";
 import { getWebSdkConfig } from "./websdk-config.service";
+import { resolveEffectiveSettings } from "./websdk-template.service";
 import { DEFAULT_ONBOARDING_MESSAGES } from "@fad-console/validation-schemas";
 
 /** Un enlace compartido vive 30 minutos desde su creación — suficiente para que el cliente lo
@@ -60,6 +61,15 @@ export async function createShareLink(input: WebSdkShareLinkInput, createdById: 
     throw AppError.badRequest("Este ambiente no tiene configuración Web SDK. Complétala antes de enviar un proceso.");
   }
 
+  let webSdkTemplateId: string | null = null;
+  if (input.webSdkTemplateId) {
+    const template = await prisma.webSdkTemplate.findUnique({ where: { id: input.webSdkTemplateId } });
+    if (!template || template.environmentId !== environment.id) {
+      throw AppError.badRequest("La plantilla Web SDK indicada no existe o no pertenece a este ambiente.");
+    }
+    webSdkTemplateId = template.id;
+  }
+
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SHARE_LINK_TTL_MINUTES * 60 * 1000);
 
@@ -68,6 +78,7 @@ export async function createShareLink(input: WebSdkShareLinkInput, createdById: 
       token,
       environmentId: environment.id,
       templateId: input.templateId ?? null,
+      webSdkTemplateId,
       processName: input.processName ?? null,
       client: toJsonField(input.client),
       status: "PENDING",
@@ -99,8 +110,11 @@ export async function getPublicShareInfo(token: string): Promise<WebSdkPublicSha
   };
   const client = fromJsonField<ShareLinkClient>(link.client, { name: "", mail: "", phone: "" });
   const config = await getWebSdkConfig(link.environmentId);
+  const template = link.webSdkTemplateId
+    ? await prisma.webSdkTemplate.findUnique({ where: { id: link.webSdkTemplateId } })
+    : null;
   const onboardingMessages = config
-    ? { ...DEFAULT_ONBOARDING_MESSAGES, ...fromJsonField(config.onboardingMessages, {}) }
+    ? resolveEffectiveSettings(config, template).onboardingMessages
     : DEFAULT_ONBOARDING_MESSAGES;
 
   return {
@@ -119,6 +133,7 @@ export async function resolveStartInput(token: string): Promise<{
   linkId: string;
   environmentId: string;
   templateId: string | null;
+  webSdkTemplateId: string | null;
   processName: string | null;
   client: ShareLinkClient;
   /** Si ya existe (el enlace pasó por /start antes, ej. el cliente recargó la página), se debe
@@ -131,6 +146,7 @@ export async function resolveStartInput(token: string): Promise<{
     linkId: link.id,
     environmentId: link.environmentId,
     templateId: link.templateId,
+    webSdkTemplateId: link.webSdkTemplateId,
     processName: link.processName,
     client,
     existingExecutionId: link.executionId,

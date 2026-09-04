@@ -123,8 +123,12 @@ export function ExternalApiKeyPanel({ environment }: { environment: ApiEnvironme
             {`curl -X POST '${createUrl}' \\
   -H 'Authorization: Bearer <clave>' \\
   -H 'Content-Type: application/json' \\
-  -d '{"client":{"name":"Nombre","mail":"correo@ejemplo.com","phone":"+573000000000"}}'`}
+  -d '{"webSdkTemplateId":"(opcional, ver Plantillas Web SDK)","client":{"name":"Nombre","mail":"correo@ejemplo.com","phone":"+573000000000"}}'`}
           </pre>
+          <p className="text-xs text-muted-foreground">
+            <code>webSdkTemplateId</code> es opcional: si se envía, esa validación usa los textos/tema/umbrales de esa
+            plantilla (ver «Plantillas Web SDK» en el menú) en vez de la configuración general del ambiente.
+          </p>
           <p className="text-xs text-muted-foreground">
             La respuesta trae <code>publicUrl</code>: es el enlace que se le entrega al usuario final para que
             complete la captura. Con <code>GET {createUrl}/&#123;id&#125;</code> (misma clave) se consulta el

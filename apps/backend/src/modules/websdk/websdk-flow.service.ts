@@ -4,6 +4,7 @@ import type {
   DocumentCaptureEngine,
   BiometricEngine,
   RegulaCaptureType,
+  WebSdkTemplateCustomizationDto,
 } from "@fad-console/shared-types";
 import type {
   WebSdkStartInput,
@@ -19,10 +20,25 @@ import { joinUrl } from "../fad-adapter/url";
 import { getEnvironmentOrThrow } from "../environments/environments.service";
 import { maskEmail, maskName } from "../../normalize/mask";
 import { getWebSdkConfig, decryptWebSdkCredentials } from "./websdk-config.service";
+import { resolveEffectiveSettings } from "./websdk-template.service";
 import { buildFadFile, deobfuscateFadKey } from "./websdk-crypto";
 import { buildTar, type TarEntry } from "./tar-writer";
 import { dataUriToBuffer, stripDataUri } from "./image-util";
 import { buildMetadataJson, buildWebSdkNormalizedDetail } from "./websdk-normalize";
+
+/** Aplica el tema de una plantilla (cuando la tiene) sobre el `configuration` de un módulo,
+ * reemplazando por completo `configuration.customization.fadCustomization` — mismo patrón que
+ * `writeFadCustomization` en el frontend (apps/frontend/src/lib/websdk-design.ts), pero operando
+ * sobre el objeto ya parseado en vez de un textarea. `override: null` (plantilla sin tema propio,
+ * o sin plantilla) deja `configuration` intacto. */
+function applyCustomizationOverride(
+  configuration: Record<string, unknown>,
+  override: WebSdkTemplateCustomizationDto | null,
+): Record<string, unknown> {
+  if (!override) return configuration;
+  const customization = (configuration.customization as Record<string, unknown> | undefined) ?? {};
+  return { ...configuration, customization: { ...customization, fadCustomization: override } };
+}
 
 /** Estado transitorio del flujo mientras se ejecuta (ver `ValidationExecution.webSdkState`). Se
  * limpia (a null) una vez `completeWebSdkExecution` termina con éxito. */
@@ -60,26 +76,30 @@ function injectMiddlewareToken(middleware: Record<string, unknown>, accessToken:
 async function getExecutionRowOrThrow(executionId: string) {
   const execution = await prisma.validationExecution.findUnique({
     where: { id: executionId },
-    include: { environment: true, template: true },
+    include: { environment: true, template: true, webSdkTemplate: true },
   });
   if (!execution) throw AppError.notFound("Ejecución no encontrada");
   return execution;
 }
 
 type WebSdkConfigRow = Awaited<ReturnType<typeof getWebSdkConfig>>;
+type WebSdkTemplateRow = Awaited<ReturnType<typeof prisma.webSdkTemplate.findUnique>>;
 
 /** Arma todo lo que el navegador necesita para arrancar los SDKs de Acuant/Facetec para una
  * ejecución YA creada. Separado de `startWebSdkExecution` para poder re-generar un `sdkInit`
  * fresco (access_token nuevo) sin duplicar la ejecución — usado tanto al crearla como al
  * re-abrir un enlace compartido (ver websdk-share.service.ts). Nunca se envía al navegador el
  * client_secret OAuth ni el password de la API: el backend obtiene un access_token de corta vida
- * y lo inyecta donde el SDK lo requiera. */
+ * y lo inyecta donde el SDK lo requiera. `template` (opcional) sobreescribe tema/umbrales de esta
+ * ejecución puntual — ver `resolveEffectiveSettings`. */
 async function buildSdkInit(
   executionId: string,
   environment: Awaited<ReturnType<typeof getEnvironmentOrThrow>>,
   config: NonNullable<WebSdkConfigRow>,
+  template: WebSdkTemplateRow = null,
 ): Promise<WebSdkSessionInitDto> {
   const creds = decryptWebSdkCredentials(config);
+  const effective = resolveEffectiveSettings(config, template);
   const documentCaptureEngine = config.documentCaptureEngine as DocumentCaptureEngine;
 
   if (documentCaptureEngine === "ACUANT") {
@@ -130,7 +150,7 @@ async function buildSdkInit(
               assureidEndpoint: config.acuantAssureidEndpoint,
             },
             params: fromJsonField(config.acuantParams, { idData: true, idPhoto: true, manualCapture: false }),
-            configuration: fromJsonField(config.acuantConfiguration, {}),
+            configuration: applyCustomizationOverride(fromJsonField(config.acuantConfiguration, {}), effective.customizationOverride),
           }
         : undefined,
     regula:
@@ -139,7 +159,7 @@ async function buildSdkInit(
             credentials: { license: creds.regulaLicense!, apiBasePath: config.regulaApiBasePath! },
             ...fromJsonField(config.regulaParams, { idData: true, idPhoto: true }),
             captureType: config.regulaCaptureType as RegulaCaptureType,
-            configuration: fromJsonField(config.regulaConfiguration, {}),
+            configuration: applyCustomizationOverride(fromJsonField(config.regulaConfiguration, {}), effective.customizationOverride),
           }
         : undefined,
     captureId:
@@ -148,12 +168,15 @@ async function buildSdkInit(
             // Mismo patrón que fad-demo-v2 FadSdkService.startCaptureId: los flags de
             // `captureIdParams` se inyectan en `configuration.output` sin perder los valores de
             // output que pudiera traer ya la configuración base.
-            configuration: (() => {
-              const captureIdConfiguration = fromJsonField<Record<string, unknown>>(config.captureIdConfiguration, {});
-              const captureIdParams = fromJsonField(config.captureIdParams, { idPhoto: true, originalPhoto: false });
-              const output = (captureIdConfiguration.output as Record<string, unknown> | undefined) ?? {};
-              return { ...captureIdConfiguration, output: { ...output, ...captureIdParams } };
-            })(),
+            configuration: applyCustomizationOverride(
+              (() => {
+                const captureIdConfiguration = fromJsonField<Record<string, unknown>>(config.captureIdConfiguration, {});
+                const captureIdParams = fromJsonField(config.captureIdParams, { idPhoto: true, originalPhoto: false });
+                const output = (captureIdConfiguration.output as Record<string, unknown> | undefined) ?? {};
+                return { ...captureIdConfiguration, output: { ...output, ...captureIdParams } };
+              })(),
+              effective.customizationOverride,
+            ),
           }
         : undefined,
     biometricEngine: config.biometricEngine as BiometricEngine,
@@ -169,9 +192,9 @@ async function buildSdkInit(
             publicFaceScanEncryptionKey: creds.facetecPublicFaceScanEncryptionKey!,
             productionKeyText: creds.facetecProductionKeyText!,
           },
-      configuration: fromJsonField(config.facetecConfiguration, {}),
+      configuration: applyCustomizationOverride(fromJsonField(config.facetecConfiguration, {}), effective.customizationOverride),
     },
-    checkMaxAttempts: config.checkMaxAttempts,
+    checkMaxAttempts: effective.checkMaxAttempts,
   };
 }
 
@@ -187,12 +210,20 @@ export async function startWebSdkExecution(
     ? ((await prisma.validationTemplate.findUnique({ where: { id: input.templateId } }))?.name ?? null)
     : null;
 
+  const webSdkTemplate = input.webSdkTemplateId
+    ? await prisma.webSdkTemplate.findUnique({ where: { id: input.webSdkTemplateId } })
+    : null;
+  if (input.webSdkTemplateId && (!webSdkTemplate || webSdkTemplate.environmentId !== environment.id)) {
+    throw AppError.badRequest("La plantilla Web SDK indicada no existe o no pertenece a este ambiente.");
+  }
+
   const execution = await prisma.validationExecution.create({
     data: {
       validationId: null,
-      processName: input.processName ?? templateName ?? "Onboarding Web SDK",
+      processName: input.processName ?? webSdkTemplate?.name ?? templateName ?? "Onboarding Web SDK",
       environmentId: environment.id,
       templateId: input.templateId ?? null,
+      webSdkTemplateId: webSdkTemplate?.id ?? null,
       requestPayload: toJsonField({ client: input.client, integrationModel: "WEB_SDK" }),
       responsePayload: null,
       normalizedResponse: null,
@@ -208,7 +239,7 @@ export async function startWebSdkExecution(
     },
   });
 
-  const sdkInit = await buildSdkInit(execution.id, environment, config);
+  const sdkInit = await buildSdkInit(execution.id, environment, config, webSdkTemplate);
   return { executionId: execution.id, sdkInit };
 }
 
@@ -219,7 +250,7 @@ export async function getSdkInitForExecution(executionId: string): Promise<WebSd
   const execution = await getExecutionRowOrThrow(executionId);
   const config = await getWebSdkConfig(execution.environmentId);
   if (!config) throw AppError.badRequest("Este ambiente no tiene configuración Web SDK.");
-  return buildSdkInit(executionId, execution.environment, config);
+  return buildSdkInit(executionId, execution.environment, config, execution.webSdkTemplate);
 }
 
 interface FadServiceResponse<T> {
@@ -238,6 +269,7 @@ export async function submitAcuantResult(
   const execution = await getExecutionRowOrThrow(executionId);
   const config = await getWebSdkConfig(execution.environmentId);
   if (!config) throw AppError.badRequest("Este ambiente no tiene configuración Web SDK.");
+  const effective = resolveEffectiveSettings(config, execution.webSdkTemplate);
   const state = fromJsonField<WebSdkState>(execution.webSdkState, emptyState());
 
   const accessToken = await fadApiAdapter.getAccessToken(execution.environment);
@@ -267,8 +299,8 @@ export async function submitAcuantResult(
   const accepted =
     typeof checkData.result === "boolean"
       ? checkData.result === true
-      : (checkData.risk ?? "").toUpperCase() === config.checkAcceptedRisk.toUpperCase();
-  const exhausted = !accepted && attempts >= config.checkMaxAttempts;
+      : (checkData.risk ?? "").toUpperCase() === effective.checkAcceptedRisk.toUpperCase();
+  const exhausted = !accepted && attempts >= effective.checkMaxAttempts;
 
   const newState: WebSdkState = {
     ...state,
@@ -291,7 +323,7 @@ export async function submitAcuantResult(
     risk: checkData.risk ?? "UNKNOWN",
     key: checkData.key ?? "",
     attemptsUsed: attempts,
-    attemptsMax: config.checkMaxAttempts,
+    attemptsMax: effective.checkMaxAttempts,
     exhausted,
   };
 }
@@ -320,6 +352,7 @@ export async function completeWebSdkExecution(executionId: string): Promise<{ ex
   const execution = await getExecutionRowOrThrow(executionId);
   const config = await getWebSdkConfig(execution.environmentId);
   if (!config) throw AppError.badRequest("Este ambiente no tiene configuración Web SDK.");
+  const effective = resolveEffectiveSettings(config, execution.webSdkTemplate);
   const state = fromJsonField<WebSdkState>(execution.webSdkState, emptyState());
 
   if (!state.acuant?.idPhoto) throw AppError.badRequest("Falta el idPhoto de la captura de documento (Acuant).");
@@ -349,13 +382,13 @@ export async function completeWebSdkExecution(executionId: string): Promise<{ ex
     });
   }
   const compare = compareJson.data;
-  if (compare.confidence < config.faceMatchMinConfidence) {
+  if (compare.confidence < effective.faceMatchMinConfidence) {
     await prisma.validationExecution.update({
       where: { id: executionId },
       data: { normalizedStatus: "FAILED", result: "REJECTED" },
     });
     throw AppError.badRequest(
-      `El match facial no alcanzó el umbral configurado (confianza ${compare.confidence.toFixed(2)}%, mínimo ${config.faceMatchMinConfidence}%).`,
+      `El match facial no alcanzó el umbral configurado (confianza ${compare.confidence.toFixed(2)}%, mínimo ${effective.faceMatchMinConfidence}%).`,
     );
   }
 

@@ -4,6 +4,9 @@ import { z } from "zod";
 export const WebSdkStartInputSchema = z.object({
   environmentId: z.string().min(1),
   templateId: z.string().min(1).optional().nullable(),
+  /// Plantilla Web SDK (textos/tema/umbrales) a aplicar — ver WebSdkTemplateInputSchema. Distinta
+  /// de `templateId`, que apunta a ValidationTemplate (by-steps).
+  webSdkTemplateId: z.string().min(1).optional().nullable(),
   processName: z.string().min(1).max(200).optional(),
   client: z.object({
     name: z.string().min(1).max(200),

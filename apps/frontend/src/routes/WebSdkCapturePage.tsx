@@ -7,6 +7,8 @@ import type { WebSdkAcuantResultInput, WebSdkFacetecResultInput } from "@fad-con
 import { useEnvironments, useWebSdkConfig } from "../features/environments/useEnvironments";
 import { useStartWebSdk, useSubmitAcuantResult, useSubmitFacetecResult, useCompleteWebSdk } from "../features/websdk/useWebSdk";
 import { useCreateShareLink, useSendShareLink } from "../features/websdk/useWebSdkShare";
+import { useWebSdkTemplates } from "../features/websdk/useWebSdkTemplates";
+import { Select } from "../components/ui/select";
 import { runAcuantCapture, runRegulaCapture, runCaptureIdCapture, runFacetecCapture, describeSdkError } from "../lib/fad-sdk-client";
 import { PageHeader, EmptyState, Spinner } from "../components/ui/misc";
 import { Card, CardContent } from "../components/ui/card";
@@ -40,6 +42,7 @@ export function WebSdkCapturePage() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("self");
   const [environmentId, setEnvironmentId] = useState(searchParams.get("environmentId") ?? "");
+  const [webSdkTemplateId, setWebSdkTemplateId] = useState("");
   const [client, setClient] = useState({ name: "", mail: "", phone: "" });
   const [sdkInit, setSdkInit] = useState<WebSdkSessionInitDto | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,7 +54,17 @@ export function WebSdkCapturePage() {
   const [emailDestination, setEmailDestination] = useState("");
 
   const { data: webSdkConfig } = useWebSdkConfig(environmentId || undefined);
-  const messages: WebSdkOnboardingMessagesDto = webSdkConfig?.onboardingMessages ?? DEFAULT_ONBOARDING_MESSAGES;
+  const { data: webSdkTemplates = [] } = useWebSdkTemplates(environmentId || undefined);
+  const activeTemplates = webSdkTemplates.filter((t) => t.active);
+  const selectedTemplate = webSdkTemplates.find((t) => t.id === webSdkTemplateId) ?? null;
+  // Misma combinación DEFAULT < ambiente < plantilla que aplica el backend (ver
+  // `resolveEffectiveSettings` en websdk-template.service.ts) — así el operador ve, antes de
+  // arrancar, el texto real que va a ver el cliente final.
+  const messages: WebSdkOnboardingMessagesDto = {
+    ...DEFAULT_ONBOARDING_MESSAGES,
+    ...webSdkConfig?.onboardingMessages,
+    ...selectedTemplate?.onboardingMessages,
+  };
 
   const canStart = Boolean(environmentId && client.name && client.mail && client.phone);
 
@@ -59,7 +72,7 @@ export function WebSdkCapturePage() {
     setError(null);
     setBusy(true);
     try {
-      const res = await startSdk.mutateAsync({ environmentId, client });
+      const res = await startSdk.mutateAsync({ environmentId, webSdkTemplateId: webSdkTemplateId || undefined, client });
       setSdkInit(res.sdkInit);
       setPhase("document");
     } catch (e) {
@@ -76,7 +89,7 @@ export function WebSdkCapturePage() {
     setError(null);
     setBusy(true);
     try {
-      const res = await createShareLink.mutateAsync({ environmentId, client });
+      const res = await createShareLink.mutateAsync({ environmentId, webSdkTemplateId: webSdkTemplateId || undefined, client });
       setShareLink(res.shareLink);
       setEmailDestination(client.mail);
       setPhase("shared");
@@ -198,6 +211,19 @@ export function WebSdkCapturePage() {
                   ))}
                 </div>
               )}
+
+              {environmentId && activeTemplates.length > 0 ? (
+                <Field label="Plantilla (opcional)" hint="Textos, tema y umbrales para este proceso — ver «Plantillas Web SDK».">
+                  <Select value={webSdkTemplateId} onChange={(e) => setWebSdkTemplateId(e.target.value)}>
+                    <option value="">(sin plantilla — usar la configuración del ambiente)</option>
+                    {activeTemplates.map((tpl) => (
+                      <option key={tpl.id} value={tpl.id}>
+                        {tpl.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
 
               <h2 className="text-sm font-semibold">Datos del cliente</h2>
               <div className="grid gap-3 md:grid-cols-3">

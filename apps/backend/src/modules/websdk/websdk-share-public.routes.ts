@@ -56,6 +56,7 @@ websdkSharePublicRouter.post("/:token/start", async (req, res, next) => {
       {
         environmentId: resolved.environmentId,
         templateId: resolved.templateId,
+        webSdkTemplateId: resolved.webSdkTemplateId,
         processName: resolved.processName ?? undefined,
         client: resolved.client,
       },

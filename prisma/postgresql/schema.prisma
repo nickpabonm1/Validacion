@@ -37,13 +37,15 @@ model User {
   clientId String?
   client   Client? @relation(fields: [clientId], references: [id])
 
-  createdTemplates    ValidationTemplate[]  @relation("TemplateCreatedBy")
-  updatedTemplates    ValidationTemplate[]  @relation("TemplateUpdatedBy")
-  executions          ValidationExecution[] @relation("ExecutionCreatedBy")
-  auditLogs           AuditLog[]
-  updatedSettings     SystemSetting[]
-  shareLinks          WebSdkShareLink[]     @relation("ShareLinkCreatedBy")
-  passwordResetTokens PasswordResetToken[]
+  createdTemplates       ValidationTemplate[]  @relation("TemplateCreatedBy")
+  updatedTemplates       ValidationTemplate[]  @relation("TemplateUpdatedBy")
+  createdWebSdkTemplates WebSdkTemplate[]      @relation("WebSdkTemplateCreatedBy")
+  updatedWebSdkTemplates WebSdkTemplate[]      @relation("WebSdkTemplateUpdatedBy")
+  executions             ValidationExecution[] @relation("ExecutionCreatedBy")
+  auditLogs              AuditLog[]
+  updatedSettings        SystemSetting[]
+  shareLinks             WebSdkShareLink[]     @relation("ShareLinkCreatedBy")
+  passwordResetTokens    PasswordResetToken[]
 
   @@map("users")
 }
@@ -185,6 +187,7 @@ model ApiEnvironment {
   templates       ValidationTemplate[]
   executions      ValidationExecution[]
   webSdkConfig    WebSdkConfig?
+  webSdkTemplates WebSdkTemplate[]
   shareLinks      WebSdkShareLink[]
   naatCheckConfig NaatCheckConfig?
 
@@ -302,6 +305,53 @@ model WebSdkConfig {
   @@map("web_sdk_configs")
 }
 
+/// Plantilla reutilizable para el modelo de integración Web SDK — el equivalente de
+/// ValidationTemplate para API_BY_STEPS, pero con su propia forma: por-pasos guarda un
+/// `ValidationRequestConfig` completo (qué pasos van, en qué orden, con qué configuración) porque
+/// eso es lo que arma la petición a FAD; Web SDK ya tiene ESO fijo por ambiente (motor de
+/// documento, credenciales — ver WebSdkConfig), así que una plantilla aquí solo cubre lo que
+/// puede variar por proceso sin tocar credenciales: los textos de cada pantalla, el tema/colores
+/// de marca, y los umbrales de intentos/riesgo/confianza. Un `null` en cualquiera de esos campos
+/// significa "usa lo que ya tenga el ambiente" — nunca se fabrica un valor.
+model WebSdkTemplate {
+  id            String         @id @default(uuid())
+  name          String
+  description   String?
+  environmentId String
+  environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  active        Boolean        @default(true)
+
+  /// JSON serializado: subconjunto de WebSdkOnboardingMessagesSchema (solo los campos que esta
+  /// plantilla sobreescribe) — se combina en tiempo de ejecución como DEFAULT < ambiente <
+  /// plantilla (ver `resolveEffectiveSettings` en websdk-template.service.ts).
+  onboardingMessages String?
+
+  /// JSON serializado: FadCustomization (colors/buttons/fonts, misma forma que ya usan los 4
+  /// módulos del Web SDK vía `configuration.customization.fadCustomization`) — cuando no es
+  /// null/vacío, REEMPLAZA por completo el tema del ambiente para esta plantilla (no se mezcla
+  /// campo a campo, para no dejar una combinación de colores a medias sin que el operador la vea
+  /// completa en la vista previa).
+  customization String?
+
+  checkMaxAttempts       Int?
+  /// RiskLevel: LOW | MEDIUM | HIGH — null = usa el del ambiente.
+  checkAcceptedRisk      String?
+  faceMatchMinConfidence Float?
+
+  createdById String?
+  createdBy   User?   @relation("WebSdkTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?   @relation("WebSdkTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  executions ValidationExecution[]
+  shareLinks WebSdkShareLink[]
+
+  @@map("web_sdk_templates")
+}
+
 model ProviderCatalogEntry {
   id                 String   @id @default(uuid())
   providerKey        String   @unique
@@ -368,6 +418,12 @@ model ValidationExecution {
   environment   ApiEnvironment      @relation(fields: [environmentId], references: [id], onDelete: Restrict)
   templateId    String?
   template      ValidationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  /// Plantilla Web SDK aplicada (textos/tema/umbrales) — distinta de `templateId` (que apunta a
+  /// ValidationTemplate, el modelo de by-steps): un mismo `templateId` no sirve para ambas porque
+  /// cada una tiene su propia forma de configuración. `null` en ejecuciones API_BY_STEPS y en las
+  /// Web SDK que no usaron ninguna plantilla (quedan con la configuración del ambiente).
+  webSdkTemplateId String?
+  webSdkTemplate   WebSdkTemplate? @relation(fields: [webSdkTemplateId], references: [id], onDelete: SetNull)
 
   /// JSON serializado: cuerpo enviado a FAD
   requestPayload     String
@@ -514,7 +570,11 @@ model WebSdkShareLink {
   environmentId String
   environment   ApiEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   templateId    String?
-  processName   String?
+  /// Plantilla Web SDK a aplicar (textos/tema/umbrales) al iniciar la captura — ver
+  /// `webSdkTemplateId` en ValidationExecution para la distinción frente a `templateId`.
+  webSdkTemplateId String?
+  webSdkTemplate   WebSdkTemplate? @relation(fields: [webSdkTemplateId], references: [id], onDelete: SetNull)
+  processName      String?
 
   /// JSON serializado: { name, mail, phone } — mismo shape que WebSdkStartInput.client
   client String

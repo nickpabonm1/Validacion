@@ -7,6 +7,9 @@ import { z } from "zod";
 export const WebSdkShareLinkInputSchema = z.object({
   environmentId: z.string().min(1),
   templateId: z.string().min(1).optional().nullable(),
+  /// Plantilla Web SDK (textos/tema/umbrales) a aplicar — ver WebSdkTemplateInputSchema. Distinta
+  /// de `templateId`, que apunta a ValidationTemplate (by-steps).
+  webSdkTemplateId: z.string().min(1).optional().nullable(),
   processName: z.string().min(1).max(200).optional(),
   client: z.object({
     name: z.string().min(1).max(200),
@@ -32,6 +35,7 @@ export type WebSdkShareSendInput = z.infer<typeof WebSdkShareSendInputSchema>;
  * otro). */
 export const WebSdkExternalValidationInputSchema = z.object({
   templateId: z.string().min(1).optional().nullable(),
+  webSdkTemplateId: z.string().min(1).optional().nullable(),
   processName: z.string().min(1).max(200).optional(),
   client: z.object({
     name: z.string().min(1).max(200),

@@ -15,6 +15,7 @@ export * from "./request-builder/template.schema";
 
 export * from "./admin/environment.schema";
 export * from "./admin/websdk-config.schema";
+export * from "./admin/websdk-template.schema";
 export * from "./websdk/websdk-flow.schema";
 export * from "./websdk/websdk-share.schema";
 export * from "./admin/messaging-config.schema";
