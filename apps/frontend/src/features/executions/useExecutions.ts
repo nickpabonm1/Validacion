@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { NaatCheckRecheckResultDto, NormalizedValidationDetail, ValidationExecutionListItemDto } from "@fad-console/shared-types";
+import type { NormalizedValidationDetail, ValidationExecutionListItemDto } from "@fad-console/shared-types";
 import type { ValidationRequestConfig } from "@fad-console/validation-schemas";
 import { api } from "../../lib/api-client";
 
@@ -101,19 +101,6 @@ export function useSyncExecution() {
     mutationFn: (id: string) => api.post<{ execution: ExecutionDetailDto }>(`/executions/${id}/sync`),
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["executions"] });
-      queryClient.invalidateQueries({ queryKey: ["executions", "detail", id] });
-      queryClient.invalidateQueries({ queryKey: ["response-views", "apply"] });
-    },
-  });
-}
-
-/** Reevalúa el riesgo de un documento ya capturado contra NAAT-CHECK, fuera del flujo principal
- * (siempre una consulta real y síncrona — ver `naat-check.service.ts`). */
-export function useTriggerNaatCheckRecheck() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.post<{ result: NaatCheckRecheckResultDto }>(`/executions/${id}/naat-check`).then((r) => r.result),
-    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["executions", "detail", id] });
       queryClient.invalidateQueries({ queryKey: ["response-views", "apply"] });
     },

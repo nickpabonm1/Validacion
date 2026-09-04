@@ -378,13 +378,6 @@ model ValidationExecution {
   /// completado (ver módulo `websdk`). Null en ejecuciones API_BY_STEPS.
   webSdkState String?
 
-  /// JSON serializado ({risk, key, result, requestedAt} — ver `NaatCheckRecheckResultDto`):
-  /// último resultado de un recheck NAAT-CHECK disparado MANUALMENTE sobre esta ejecución (botón
-  /// "Reevaluar con NAAT-CHECK", módulo `naat-check`). Distinto de `naatCheckResult` en el
-  /// detalle normalizado (pasivo, lo devuelve FAD) y de `webSdkState.check` (NAAT-CHECK del flujo
-  /// Web SDK, orquestado dentro de esa misma ejecución). `null` = nunca se disparó un recheck.
-  naatCheckRecheckResult String?
-
   isDemo Boolean @default(false)
 
   startedAt    DateTime?

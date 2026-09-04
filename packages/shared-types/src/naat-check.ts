@@ -18,16 +18,6 @@ export interface NaatCheckConfigDto {
   updatedAt: string;
 }
 
-/** Resultado real de un recheck NAAT-CHECK (nunca fabricado — o viene de una respuesta genuina
- * del servicio, o la llamada lanza un error). `key`/`reasons` según la sección "data.key" del PDF
- * ("API RECHECK PROCESS" v1.1): motivo del riesgo cuando no es "ACCEPTED". */
-export interface NaatCheckRecheckResultDto {
-  risk: RiskLevel;
-  key: string | null;
-  result: boolean;
-  requestedAt: string;
-}
-
 export interface NaatCheckTestConnectionResultDto {
   success: boolean;
   message: string;

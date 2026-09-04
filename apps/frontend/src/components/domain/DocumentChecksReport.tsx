@@ -20,7 +20,7 @@ const CATEGORY_ORDER = [
   "mrzCheckDigit",
   "dateChecks",
   "authenticity",
-  "naatCheckRecheck",
+  "naatCheck",
 ] as const;
 export const CATEGORY_LABELS: Record<string, string> = {
   // Acuant (AssureID) — array plano de tests sin categorías propias, ver validation-detail.ts
@@ -31,9 +31,10 @@ export const CATEGORY_LABELS: Record<string, string> = {
   mrzCheckDigit: "Verificación de dígitos MRZ",
   dateChecks: "Validación de fechas",
   authenticity: "Autenticidad del documento",
-  // Fila sintética agregada por `naat-check-merge.ts` cuando se dispara un recheck manual — ver
-  // `NaatCheckRecheckPanel`. Vacía (sin filas) hasta que se dispara al menos un recheck.
-  naatCheckRecheck: "NAAT-CHECK (reevaluación manual)",
+  // Fila sintética agregada por validation-detail.ts cuando la plantilla pidió NAAT-CHECK
+  // (configuration.idValidations.naatCheck.enabled) pero el proveedor nunca devolvió un
+  // resultado — ver el comentario en esa función. Vacía mientras NAAT-CHECK sí responda a tiempo.
+  naatCheck: "NAAT-CHECK",
 };
 
 const TONE_ORDER: Record<DocumentCheckTone, number> = { warning: 0, muted: 1, success: 2 };

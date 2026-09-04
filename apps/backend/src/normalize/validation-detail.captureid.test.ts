@@ -271,6 +271,66 @@ describe("buildNormalizedValidationDetail — pasos administrativos con todo en 
   });
 });
 
+describe("buildNormalizedValidationDetail — NAAT-CHECK solicitado en el paso pero sin respuesta del proveedor", () => {
+  it("marca NAAT-CHECK como WAS_NOT_DONE sin bloquear el resto de 'Validación de ID' cuando el documento sí se leyó (caso real: captureId queda PENDING indefinidamente)", () => {
+    const detail = buildNormalizedValidationDetail({
+      validationId: "demo-naat-check-null",
+      processName: "PRUEBA",
+      environmentName: "Demo",
+      templateName: null,
+      requestSteps: { captureId: { order: 2, show: true } },
+      fallbackClient: { name: "PRUEBA", mail: "demo@example.com", phone: "+570000000000" },
+      createResponse: null,
+      stepResponse: {
+        success: true,
+        error: "",
+        code: null,
+        data: {
+          ...stepResponseFixture.data,
+          steps: {
+            captureId: {
+              ...stepResponseFixture.data.steps.captureId,
+              // Observado en una ejecución real API_BY_STEPS: el proveedor mantiene el paso
+              // "pendiente" aunque `data` (OCR/alerts/classification) ya esté completo, porque su
+              // propia verificación interna de NAAT-CHECK (pedida vía configuration.idValidations.
+              // naatCheck.enabled) nunca resuelve.
+              status: "PENDING",
+              configuration: { idValidations: { naatCheck: { enabled: true } } },
+            },
+          },
+        },
+      } as never,
+      dataResponse: { ...dataResponseFixture, data: { ...dataResponseFixture.data, naatCheck: null } } as never,
+    });
+
+    expect(detail.naatCheckResult).toBeNull();
+    const naatCheckEntry = detail.documentChecks.find((c) => c.category === "naatCheck");
+    expect(naatCheckEntry?.result).toBe("WAS_NOT_DONE");
+    // El resto de "Validación de ID" (las 5 categorías reales del documento) sigue presente y sin
+    // alterar — no se bloquea ni se fabrica un resultado de riesgo.
+    expect(detail.documentChecks.some((c) => c.category === "authenticity")).toBe(true);
+    // Los campos crudos del proveedor (status/rawStatus del paso) nunca se tocan: siguen reflejando
+    // lo que FAD realmente reportó, aunque el reporte ya no dependa de ellos para mostrar NAAT-CHECK.
+    expect(detail.steps.find((s) => s.key === "captureId")?.status).toBe("PENDING");
+  });
+
+  it("no agrega la fila sintética cuando NAAT-CHECK no fue solicitado en el paso (configuration vacía)", () => {
+    const detail = buildNormalizedValidationDetail({
+      validationId: "demo-naat-check-not-requested",
+      processName: "PRUEBA",
+      environmentName: "Demo",
+      templateName: null,
+      requestSteps: { captureId: { order: 2, show: true } },
+      fallbackClient: { name: "PRUEBA", mail: "demo@example.com", phone: "+570000000000" },
+      createResponse: null,
+      stepResponse: stepResponseFixture,
+      dataResponse: { ...dataResponseFixture, data: { ...dataResponseFixture.data, naatCheck: null } } as never,
+    });
+
+    expect(detail.documentChecks.some((c) => c.category === "naatCheck")).toBe(false);
+  });
+});
+
 describe("buildNormalizedValidationDetail — sin datos de captureId", () => {
   it("documentChecks/governmentValidation/naatCheckResult/clientDetails no rompen con datos ausentes", () => {
     const detail = buildNormalizedValidationDetail({

@@ -6,7 +6,6 @@ import { OcrTable } from "./OcrTable";
 import { ImageGallery } from "./ImageGallery";
 import { ExternalValidationCard } from "./ExternalValidationCard";
 import { DocumentChecksReport } from "./DocumentChecksReport";
-import { NaatCheckRecheckPanel } from "./NaatCheckRecheckPanel";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -110,8 +109,6 @@ export function ReportView({ detail, executionId }: { detail: NormalizedValidati
       ) : null}
 
       <DocumentChecksReport checks={detail.documentChecks} />
-
-      <NaatCheckRecheckPanel executionId={executionId} result={detail.naatCheckRecheckResult} />
 
       {hasGovernmentValidation || hasNaatCheck ? (
         <Card>

@@ -337,6 +337,28 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
     naatCheckRaw && typeof naatCheckRaw === "object" && Object.keys(asRecord(naatCheckRaw)).length > 0
       ? asRecord(naatCheckRaw)
       : null;
+  // Si esta plantilla pidió NAAT-CHECK dentro del mismo paso (`configuration.idValidations.
+  // naatCheck.enabled`, ver CaptureIdEditor) y el documento sí se llegó a leer (captureIdData con
+  // contenido) pero el proveedor nunca devolvió `naatCheck` en la respuesta, se dispara una carrera
+  // real observada: el proveedor puede mantener el paso "pendiente" indefinidamente esperando su
+  // propia verificación interna. Nunca se fabrica un resultado de riesgo: se deja constancia
+  // explícita de que esa verificación puntual no se pudo completar (mismo vocabulario "WAS_NOT_DONE"
+  // que el resto del reporte), sin bloquear el resto de "Validación de ID".
+  const idValidationsConfig = asRecord(asRecord(captureIdStep?.configuration).idValidations);
+  const naatCheckRequested = asRecord(idValidationsConfig.naatCheck).enabled === true;
+  if (naatCheckRequested && Object.keys(captureIdData).length > 0 && naatCheckResult === null) {
+    documentChecks.push({
+      category: "naatCheck",
+      page: null,
+      name: "risk_assessment",
+      description: "Verificación de riesgo NAAT-CHECK solicitada como parte de esta validación.",
+      result: "WAS_NOT_DONE",
+      resultDescription:
+        "El proveedor de biometría no devolvió un resultado de NAAT-CHECK. El documento sí se leyó correctamente; solo esta verificación puntual no se pudo completar.",
+      sources: null,
+    });
+  }
+
   const clientDetails = extractClientDetails(dataClient);
 
   const latitude = dataBlock?.latitude != null ? String(dataBlock.latitude) : null;
@@ -381,10 +403,6 @@ export function buildNormalizedValidationDetail(params: BuildNormalizedValidatio
     documentCheckRejection: null,
     governmentValidation,
     naatCheckResult,
-    // Igual criterio que `documentCheckRejection`: esta función es pura (sin acceso a BD), así
-    // que solo pone el valor neutro por defecto; `executions.service.ts` lo sobreescribe con el
-    // resultado guardado del recheck manual (ver módulo `naat-check`).
-    naatCheckRecheckResult: null,
     mediaAssets: extractMediaAssets(steps),
     raw: {
       createResponse: params.createResponse,

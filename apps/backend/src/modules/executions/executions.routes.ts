@@ -5,7 +5,6 @@ import { requireAuth, requireRole, auditContextFrom } from "../auth/auth.middlew
 import { logAudit } from "../audit/audit.service";
 import { buildClientScope } from "../clients/client-scope";
 import { sendShareLinkEmail } from "../messaging/email.service";
-import { triggerNaatCheckRecheck } from "../naat-check/naat-check.service";
 import {
   createExecution,
   getExecutionOrThrow,
@@ -129,18 +128,6 @@ executionsRouter.post("/:id/send-email", requireRole("ADMIN", "OPERATOR", "LAUNC
   }
 });
 
-/** Reevalúa el riesgo de un documento ya capturado contra NAAT-CHECK (NAAT.TECH "API RECHECK
- * PROCESS") — fuera del flujo principal, bajo pedido. Ver `naat-check.service.ts` para el porqué
- * solo aplica a ejecuciones API_BY_STEPS. */
-executionsRouter.post("/:id/naat-check", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
-  try {
-    const scope = await buildClientScope(req.user!);
-    const result = await triggerNaatCheckRecheck(req.params.id as string, scope, auditContextFrom(req));
-    res.json({ result });
-  } catch (error) {
-    next(error);
-  }
-});
 
 executionsRouter.post("/:id/reveal/:field", requireRole("ADMIN", "OPERATOR"), async (req, res, next) => {
   try {

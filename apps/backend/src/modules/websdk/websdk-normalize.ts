@@ -309,10 +309,6 @@ export function buildWebSdkNormalizedDetail(input: WebSdkNormalizeInput): Normal
     documentCheckRejection: null,
     governmentValidation: null,
     naatCheckResult: null,
-    // El recheck manual (módulo `naat-check`) solo aplica a ejecuciones API_BY_STEPS (ver el
-    // filtro por `integrationModel` en `naat-check.routes.ts`) — el flujo Web SDK ya tiene su
-    // propio NAAT-CHECK integrado (`webSdkState.check` / `externalValidations.naat_check`).
-    naatCheckRecheckResult: null,
     mediaAssets,
     raw: {
       createResponse: null,

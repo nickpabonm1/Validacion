@@ -1,5 +1,4 @@
 import type { NormalizedResult, NormalizedStepStatus, NormalizedValidationStatus } from "./enums";
-import type { NaatCheckRecheckResultDto } from "./naat-check";
 
 /**
  * Forma canónica normalizada de una validación, resultado de combinar
@@ -130,12 +129,6 @@ export interface NormalizedValidationDetail {
    * Portal FAD ("NAAT Check": resultado/id/riesgo/clave/descripción de la clave). `null` cuando
    * FAD todavía no lo devuelve. */
   naatCheckResult: Record<string, unknown> | null;
-  /** Resultado de un recheck NAAT-CHECK disparado MANUALMENTE sobre esta ejecución (botón
-   * "Reevaluar con NAAT-CHECK", módulo `naat-check`) — distinto de `naatCheckResult` (arriba,
-   * pasivo, lo devuelve FAD). También se refleja como una fila sintética en `documentChecks`
-   * (categoría `naatCheckRecheck`) para que participe en la puntuación por categoría. `null` =
-   * nunca se disparó un recheck sobre esta ejecución. */
-  naatCheckRecheckResult: NaatCheckRecheckResultDto | null;
   mediaAssets: NormalizedMediaAsset[];
 
   raw: {
