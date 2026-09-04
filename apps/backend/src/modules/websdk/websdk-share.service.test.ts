@@ -51,6 +51,31 @@ describe("websdk-share.service: enlaces de captura compartibles", () => {
     expect(info.onboardingMessages.welcomeTitle).toBeTruthy();
   });
 
+  it("usa 30 minutos de vigencia por defecto, pero acepta una vigencia personalizada (expiresInMinutes)", async () => {
+    const { environmentId, userId } = await setupEnvironmentAndUser();
+
+    const before = Date.now();
+    const { link: defaultLink } = await createShareLink(
+      { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+      userId,
+    );
+    const defaultTtlMinutes = (defaultLink.expiresAt.getTime() - before) / 60000;
+    expect(defaultTtlMinutes).toBeGreaterThan(29);
+    expect(defaultTtlMinutes).toBeLessThanOrEqual(30.1);
+
+    const { link: customLink } = await createShareLink(
+      {
+        environmentId,
+        expiresInMinutes: 60 * 24 * 7, // 7 días
+        client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" },
+      },
+      userId,
+    );
+    const customTtlMinutes = (customLink.expiresAt.getTime() - before) / 60000;
+    expect(customTtlMinutes).toBeGreaterThan(60 * 24 * 7 - 1);
+    expect(customTtlMinutes).toBeLessThanOrEqual(60 * 24 * 7 + 0.1);
+  });
+
   it("resolveStartInput no trae executionId hasta que se marca STARTED", async () => {
     const { environmentId, userId } = await setupEnvironmentAndUser();
     const { link } = await createShareLink(

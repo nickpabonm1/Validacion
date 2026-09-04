@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+/** Vigencia del enlace en minutos: opcional (por defecto 30, ver `DEFAULT_SHARE_LINK_TTL_MINUTES`
+ * en websdk-share.service.ts), parametrizable entre 1 minuto y 30 días. */
+export const shareLinkExpiresInMinutesSchema = z.number().int().min(1).max(43200).optional();
+
 /** Payload para crear un enlace de captura Web SDK compartible (QR / correo / WhatsApp / copiar
  * enlace) — ver docs/websdk-integration.md "Envío de procesos". Mismo shape de cliente que
  * `WebSdkStartInputSchema`: el enlace guarda estos datos y los usa recién cuando el cliente final
@@ -11,6 +15,7 @@ export const WebSdkShareLinkInputSchema = z.object({
   /// de `templateId`, que apunta a ValidationTemplate (by-steps).
   webSdkTemplateId: z.string().min(1).optional().nullable(),
   processName: z.string().min(1).max(200).optional(),
+  expiresInMinutes: shareLinkExpiresInMinutesSchema,
   client: z.object({
     name: z.string().min(1).max(200),
     mail: z.string().email(),
@@ -37,6 +42,7 @@ export const WebSdkExternalValidationInputSchema = z.object({
   templateId: z.string().min(1).optional().nullable(),
   webSdkTemplateId: z.string().min(1).optional().nullable(),
   processName: z.string().min(1).max(200).optional(),
+  expiresInMinutes: shareLinkExpiresInMinutesSchema,
   client: z.object({
     name: z.string().min(1).max(200),
     mail: z.string().email(),

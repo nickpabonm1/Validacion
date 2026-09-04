@@ -123,11 +123,15 @@ export function ExternalApiKeyPanel({ environment }: { environment: ApiEnvironme
             {`curl -X POST '${createUrl}' \\
   -H 'Authorization: Bearer <clave>' \\
   -H 'Content-Type: application/json' \\
-  -d '{"webSdkTemplateId":"(opcional, ver Plantillas Web SDK)","client":{"name":"Nombre","mail":"correo@ejemplo.com","phone":"+573000000000"}}'`}
+  -d '{"webSdkTemplateId":"(opcional, ver Plantillas Web SDK)","expiresInMinutes":30,"client":{"name":"Nombre","mail":"correo@ejemplo.com","phone":"+573000000000"}}'`}
           </pre>
           <p className="text-xs text-muted-foreground">
             <code>webSdkTemplateId</code> es opcional: si se envía, esa validación usa los textos/tema/umbrales de esa
             plantilla (ver «Plantillas Web SDK» en el menú) en vez de la configuración general del ambiente.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            <code>expiresInMinutes</code> es opcional (por defecto 30): define cuánto tiempo tiene el usuario final para
+            abrir el enlace y completar la captura antes de que expire. Acepta entre 1 minuto y 43200 (30 días).
           </p>
           <p className="text-xs text-muted-foreground">
             La respuesta trae <code>publicUrl</code>: es el enlace que se le entrega al usuario final para que

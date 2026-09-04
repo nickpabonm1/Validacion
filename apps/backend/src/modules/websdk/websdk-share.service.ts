@@ -11,10 +11,11 @@ import { getWebSdkConfig } from "./websdk-config.service";
 import { resolveEffectiveSettings } from "./websdk-template.service";
 import { DEFAULT_ONBOARDING_MESSAGES } from "@fad-console/validation-schemas";
 
-/** Un enlace compartido vive 30 minutos desde su creación — suficiente para que el cliente lo
- * abra desde el QR/correo/WhatsApp y complete la captura, corto para minimizar la ventana de un
- * enlace filtrado. */
-const SHARE_LINK_TTL_MINUTES = 30;
+/** Un enlace compartido vive 30 minutos desde su creación por defecto — suficiente para que el
+ * cliente lo abra desde el QR/correo/WhatsApp y complete la captura, corto para minimizar la
+ * ventana de un enlace filtrado. Quien lo crea puede parametrizar esta vigencia por enlace (ver
+ * `expiresInMinutes` en WebSdkShareLinkInputSchema), entre 1 minuto y 30 días. */
+const DEFAULT_SHARE_LINK_TTL_MINUTES = 30;
 
 type ShareLinkRecord = Awaited<ReturnType<typeof prisma.webSdkShareLink.findUniqueOrThrow>>;
 
@@ -71,7 +72,8 @@ export async function createShareLink(input: WebSdkShareLinkInput, createdById: 
   }
 
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + SHARE_LINK_TTL_MINUTES * 60 * 1000);
+  const ttlMinutes = input.expiresInMinutes ?? DEFAULT_SHARE_LINK_TTL_MINUTES;
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
   const link = await prisma.webSdkShareLink.create({
     data: {

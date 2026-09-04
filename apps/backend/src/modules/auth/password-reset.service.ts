@@ -7,9 +7,9 @@ import { findUserByEmail } from "../users/users.service";
 import { hashPassword } from "./password";
 import { sendPasswordResetEmail } from "../messaging/email.service";
 
-/** El enlace vive 30 minutos — mismo criterio que los enlaces de captura Web SDK
- * (`SHARE_LINK_TTL_MINUTES`): suficiente para abrir el correo y completar el cambio, corto para
- * minimizar la ventana de un enlace filtrado/interceptado. */
+/** El enlace vive 30 minutos — mismo criterio por defecto que los enlaces de captura Web SDK
+ * (`DEFAULT_SHARE_LINK_TTL_MINUTES`): suficiente para abrir el correo y completar el cambio,
+ * corto para minimizar la ventana de un enlace filtrado/interceptado. */
 const RESET_TOKEN_TTL_MINUTES = 30;
 
 /**

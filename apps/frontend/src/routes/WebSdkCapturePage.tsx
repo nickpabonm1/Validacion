@@ -43,6 +43,7 @@ export function WebSdkCapturePage() {
   const [captureMode, setCaptureMode] = useState<CaptureMode>("self");
   const [environmentId, setEnvironmentId] = useState(searchParams.get("environmentId") ?? "");
   const [webSdkTemplateId, setWebSdkTemplateId] = useState("");
+  const [expiresInMinutes, setExpiresInMinutes] = useState(30);
   const [client, setClient] = useState({ name: "", mail: "", phone: "" });
   const [sdkInit, setSdkInit] = useState<WebSdkSessionInitDto | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,7 +90,12 @@ export function WebSdkCapturePage() {
     setError(null);
     setBusy(true);
     try {
-      const res = await createShareLink.mutateAsync({ environmentId, webSdkTemplateId: webSdkTemplateId || undefined, client });
+      const res = await createShareLink.mutateAsync({
+        environmentId,
+        webSdkTemplateId: webSdkTemplateId || undefined,
+        expiresInMinutes,
+        client,
+      });
       setShareLink(res.shareLink);
       setEmailDestination(client.mail);
       setPhase("shared");
@@ -268,6 +274,20 @@ export function WebSdkCapturePage() {
                 </button>
               </div>
 
+              {captureMode === "share" ? (
+                <Field label="Vigencia del enlace" hint="Tiempo que el cliente tiene para abrirlo y completar la captura antes de que expire.">
+                  <Select value={String(expiresInMinutes)} onChange={(e) => setExpiresInMinutes(Number(e.target.value))}>
+                    <option value="15">15 minutos</option>
+                    <option value="30">30 minutos (por defecto)</option>
+                    <option value="60">1 hora</option>
+                    <option value="240">4 horas</option>
+                    <option value="1440">24 horas</option>
+                    <option value="10080">7 días</option>
+                    <option value="43200">30 días</option>
+                  </Select>
+                </Field>
+              ) : null}
+
               <Button disabled={!canStart || busy} onClick={captureMode === "self" ? handleStart : handleCreateShareLink}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {captureMode === "self" ? "Iniciar sesión" : "Generar enlace"}
@@ -283,7 +303,7 @@ export function WebSdkCapturePage() {
               </div>
               <p className="text-sm text-muted-foreground">
                 Comparte este enlace con {client.name || "el cliente"} para que complete la verificación desde su propio
-                celular. Expira el {new Date(shareLink.expiresAt).toLocaleTimeString()} y solo puede usarse una vez.
+                celular. Expira el {new Date(shareLink.expiresAt).toLocaleString()} y solo puede usarse una vez.
               </p>
               <ShareLinkPanel url={shareLink.publicUrl ?? ""} processName={shareLink.processName ?? undefined} />
               <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-4">
