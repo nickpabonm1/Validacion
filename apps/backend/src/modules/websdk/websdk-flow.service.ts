@@ -115,8 +115,19 @@ async function buildSdkInit(
       );
     }
   }
-  // CAPTURE_ID no recibe credenciales por parámetro (ver "FAD SDK Web CaptureId" §Parameters):
-  // se autentica con `sdkToken`, que ya tiene fallback al access_token más abajo.
+  // El "user" que arranca el iframe del SDK (`sdkToken`) es un valor propio del "Token
+  // generation" del proveedor (ver comentario de WebSdkConfig.sdkTokenEnc en schema.prisma) —
+  // NO el access_token OAuth de la API REST. Usarlo como fallback aquí rompe el guard de
+  // acceso del IFRAME MANAGER: un JWT no es base64 estándar y su `atob()` interno falla
+  // (InvalidCharacterError), mostrando "Acceso denegado" en vez de arrancar la captura.
+  // CAPTURE_ID es la única excepción documentada ("FAD SDK Web CaptureId" §Parameters: no
+  // recibe credenciales por parámetro, se autentica solo con `sdkToken`) — por eso, y solo
+  // para ese engine, sí se permite el fallback al access_token más abajo.
+  if (documentCaptureEngine !== "CAPTURE_ID" && !creds.sdkToken) {
+    throw AppError.badRequest(
+      "Configura el «Token del SDK (Token generation)» en Ambientes > Web SDK antes de iniciar una captura: sin él, el SDK del proveedor rechaza el acceso.",
+    );
+  }
   if (!config.facetecUseMiddleware) {
     if (
       !creds.facetecDeviceKeyIdentifier ||

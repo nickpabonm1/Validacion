@@ -51,6 +51,7 @@ async function setupEnvironment() {
       acuantPassiveUsernameEnc: credentialEncryptionService.encrypt("acuant-user"),
       acuantPassivePasswordEnc: credentialEncryptionService.encrypt("acuant-pass"),
       acuantPassiveSubscriptionIdEnc: credentialEncryptionService.encrypt("acuant-sub"),
+      sdkTokenEnc: credentialEncryptionService.encrypt("sdk-token-generation-fake"),
       checkMaxAttempts: 2,
       checkAcceptedRisk: "LOW",
       faceMatchMinConfidence: 85,
@@ -72,6 +73,18 @@ describe("websdk-flow (integración): captura Acuant + Facetec orquestada por el
 
   afterAll(async () => {
     await prisma.$disconnect();
+  });
+
+  it("rechaza iniciar una sesión Acuant sin el Token del SDK (Token generation) configurado", async () => {
+    const environmentId = await setupEnvironment();
+    await prisma.webSdkConfig.update({ where: { environmentId }, data: { sdkTokenEnc: null } });
+
+    await expect(
+      startWebSdkExecution(
+        { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+        null,
+      ),
+    ).rejects.toThrow(/Token del SDK/i);
   });
 
   it("rechaza iniciar una sesión sobre un ambiente sin configuración Web SDK", async () => {
@@ -233,6 +246,7 @@ async function setupRegulaEnvironment() {
       regulaLicenseEnc: credentialEncryptionService.encrypt("regula-license-base64"),
       regulaApiBasePath: "https://interno.test.invalid/regula",
       regulaCaptureType: "CAMERA_SNAPSHOT",
+      sdkTokenEnc: credentialEncryptionService.encrypt("sdk-token-generation-fake"),
       checkMaxAttempts: 2,
       checkAcceptedRisk: "LOW",
       faceMatchMinConfidence: 85,
@@ -281,6 +295,18 @@ describe("websdk-flow (integración): motor de captura Regula", () => {
         null,
       ),
     ).rejects.toThrow(/licencia.*apiBasePath.*Regula/i);
+  });
+
+  it("rechaza iniciar una sesión Regula sin el Token del SDK (Token generation) configurado", async () => {
+    const environmentId = await setupRegulaEnvironment();
+    await prisma.webSdkConfig.update({ where: { environmentId }, data: { sdkTokenEnc: null } });
+
+    await expect(
+      startWebSdkExecution(
+        { environmentId, client: { name: "Cliente Demo", mail: "cliente@ejemplo.com", phone: "+573000000000" } },
+        null,
+      ),
+    ).rejects.toThrow(/Token del SDK/i);
   });
 });
 

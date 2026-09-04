@@ -283,7 +283,11 @@ export function WebSdkConfigForm({ environmentId }: { environmentId: string | nu
             value={values.sdkToken ?? ""}
             onChange={(v) => setValue("sdkToken", v)}
             onClear={() => clearCredential.mutate({ environmentId: envId, field: "sdkToken" })}
-            hint="Opcional: si se deja vacío, se usa el access_token OAuth como respaldo."
+            hint={
+              values.documentCaptureEngine === "CAPTURE_ID"
+                ? "Opcional con CaptureID: si se deja vacío, se usa el access_token OAuth como respaldo."
+                : "Obligatorio con Acuant/Regula: sin este token (obtenido con el «Token generation» del proveedor, no es el access_token OAuth) el SDK del proveedor rechaza el acceso al capturar."
+            }
           />
         </CardContent>
       </Card>
