@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Upload } from "lucide-react";
 import { WebSdkConfigInputSchema, DEFAULT_ONBOARDING_MESSAGES, type WebSdkConfigInput } from "@fad-console/validation-schemas";
@@ -232,6 +232,20 @@ export function WebSdkConfigForm({
     }
   }
 
+  /** Si algún campo no pasa la validación (ej. un endpoint que no es una URL válida),
+   * react-hook-form nunca llama a `onSubmit` — sin este handler el botón «Guardar» no hacía nada
+   * visible, sin avisar qué campo estaba mal. Muestra un toast con los campos y el motivo. */
+  function onInvalidSubmit(errors: FieldErrors<WebSdkConfigInput>) {
+    const details = Object.entries(errors)
+      .map(([field, error]) => `${field}: ${(error as { message?: string })?.message ?? "valor inválido"}`)
+      .join(" · ");
+    notify({
+      title: "No se pudo guardar: revisa estos campos",
+      description: details,
+      tone: "error",
+    });
+  }
+
   async function onSubmit(formValues: WebSdkConfigInput) {
     const acuantConfiguration = parseJsonBlob("Configuración de Acuant", acuantConfigurationText);
     const regulaConfiguration = parseJsonBlob("Configuración de Regula", regulaConfigurationText);
@@ -306,7 +320,7 @@ export function WebSdkConfigForm({
         </Button>
       </div>
 
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>SDK (iframe)</CardTitle>
